@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import * as Crypto from 'expo-crypto';
-import type { Nudge, Priority, RecurrenceParams, RecurrenceType } from '@/lib/types';
-import { computeNextOccurrence } from '@/lib/recurrence';
+import type { Nudge, RecurrenceParams, RecurrenceType } from '@/lib/types';
+import { computeCompletion, computeUncompletion } from '@/lib/completion';
 import { incrementCompletedCount, decrementCompletedCount } from '@/db/settings';
 
 type NudgeRow = {
@@ -13,9 +13,11 @@ type NudgeRow = {
   recurrence_type: RecurrenceType;
   recurrence_params: string | null;
   next_occurrence_at: number | null;
-  priority: Priority;
   completed_at: number | null;
+  last_completed_at: number | null;
   snoozed_until: number | null;
+  source_nudge_id: string | null;
+  prev_last_completed_at: number | null;
   created_at: number;
   updated_at: number;
 };
@@ -30,9 +32,11 @@ function mapRow(row: NudgeRow): Nudge {
     recurrenceType: row.recurrence_type,
     recurrenceParams: row.recurrence_params ? JSON.parse(row.recurrence_params) : null,
     nextOccurrenceAt: row.next_occurrence_at,
-    priority: row.priority,
     completedAt: row.completed_at,
+    lastCompletedAt: row.last_completed_at,
     snoozedUntil: row.snoozed_until,
+    sourceNudgeId: row.source_nudge_id,
+    rollbackLastCompletedAt: row.prev_last_completed_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -50,7 +54,6 @@ export type CreateNudgeInput = {
   dueAt?: number | null;
   recurrenceType?: RecurrenceType;
   recurrenceParams?: RecurrenceParams | null;
-  priority?: Priority;
 };
 
 export async function createNudge(db: SQLiteDatabase, input: CreateNudgeInput): Promise<Nudge> {
@@ -59,12 +62,11 @@ export async function createNudge(db: SQLiteDatabase, input: CreateNudgeInput): 
   const recurrenceType = input.recurrenceType ?? 'none';
   const recurrenceParams = input.recurrenceParams ?? null;
   const dueAt = input.dueAt ?? null;
-  const priority = input.priority ?? 'gentle';
 
   await db.runAsync(
     `INSERT INTO nudges
-       (id, list_id, title, note, due_at, recurrence_type, recurrence_params, next_occurrence_at, priority, completed_at, snoozed_until, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)`,
+       (id, list_id, title, note, due_at, recurrence_type, recurrence_params, next_occurrence_at, completed_at, last_completed_at, snoozed_until, source_nudge_id, prev_last_completed_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
     [
       id,
       input.listId,
@@ -74,7 +76,6 @@ export async function createNudge(db: SQLiteDatabase, input: CreateNudgeInput): 
       recurrenceType,
       recurrenceParams ? JSON.stringify(recurrenceParams) : null,
       dueAt,
-      priority,
       now,
       now,
     ]
@@ -89,9 +90,11 @@ export async function createNudge(db: SQLiteDatabase, input: CreateNudgeInput): 
     recurrenceType,
     recurrenceParams,
     nextOccurrenceAt: dueAt,
-    priority,
     completedAt: null,
+    lastCompletedAt: null,
     snoozedUntil: null,
+    sourceNudgeId: null,
+    rollbackLastCompletedAt: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -103,8 +106,8 @@ export type UpdateNudgeInput = Partial<{
   dueAt: number | null;
   recurrenceType: RecurrenceType;
   recurrenceParams: RecurrenceParams | null;
-  priority: Priority;
   nextOccurrenceAt: number | null;
+  lastCompletedAt: number | null;
   snoozedUntil: number | null;
 }>;
 
@@ -114,8 +117,8 @@ const COLUMN_MAP: Record<string, string> = {
   dueAt: 'due_at',
   recurrenceType: 'recurrence_type',
   recurrenceParams: 'recurrence_params',
-  priority: 'priority',
   nextOccurrenceAt: 'next_occurrence_at',
+  lastCompletedAt: 'last_completed_at',
   snoozedUntil: 'snoozed_until',
 };
 
@@ -148,50 +151,129 @@ export async function updateNudge(
 }
 
 export async function deleteNudge(db: SQLiteDatabase, id: string): Promise<void> {
-  await db.runAsync('DELETE FROM nudges WHERE id = ?', [id]);
+  await db.runAsync('DELETE FROM nudges WHERE id = ? OR source_nudge_id = ?', [id, id]);
 }
 
 export async function deleteNudgesForList(db: SQLiteDatabase, listId: string): Promise<void> {
   await db.runAsync('DELETE FROM nudges WHERE list_id = ?', [listId]);
 }
 
-export async function completeNudge(db: SQLiteDatabase, id: string): Promise<Nudge> {
+export type CompleteResult = { nudge: Nudge; copy: Nudge | null };
+
+export async function completeNudge(db: SQLiteDatabase, id: string): Promise<CompleteResult> {
   const row = await db.getFirstAsync<NudgeRow>('SELECT * FROM nudges WHERE id = ?', [id]);
   if (!row) throw new Error(`Nudge ${id} not found`);
   const nudge = mapRow(row);
-  const completedAt = Date.now();
+  const now = Date.now();
 
   await incrementCompletedCount(db);
 
-  if (nudge.recurrenceType === 'none') {
-    await db.runAsync('UPDATE nudges SET completed_at = ?, updated_at = ? WHERE id = ?', [
-      completedAt,
-      completedAt,
-      id,
-    ]);
-    return { ...nudge, completedAt, updatedAt: completedAt };
+  const { updatedNudge, copy } = computeCompletion(nudge, now);
+
+  if (copy === null) {
+    await db.runAsync(
+      'UPDATE nudges SET completed_at = ?, last_completed_at = ?, updated_at = ? WHERE id = ?',
+      [updatedNudge.completedAt ?? null, updatedNudge.lastCompletedAt ?? null, now, id]
+    );
+    return { nudge: { ...nudge, ...updatedNudge, updatedAt: now }, copy: null };
   }
 
-  const anchor = new Date(nudge.nextOccurrenceAt ?? nudge.dueAt ?? completedAt);
-  const next = computeNextOccurrence(anchor, nudge.recurrenceType, nudge.recurrenceParams);
-  const nextOccurrenceAt = next ? next.getTime() : null;
-  await updateNudge(db, id, { nextOccurrenceAt, snoozedUntil: null });
-  return { ...nudge, nextOccurrenceAt, snoozedUntil: null, updatedAt: Date.now() };
+  await db.runAsync(
+    'UPDATE nudges SET next_occurrence_at = ?, snoozed_until = ?, last_completed_at = ?, updated_at = ? WHERE id = ?',
+    [
+      updatedNudge.nextOccurrenceAt ?? null,
+      updatedNudge.snoozedUntil ?? null,
+      updatedNudge.lastCompletedAt ?? null,
+      now,
+      id,
+    ]
+  );
+
+  const copyId = Crypto.randomUUID();
+  await db.runAsync(
+    `INSERT INTO nudges
+       (id, list_id, title, note, due_at, recurrence_type, recurrence_params, next_occurrence_at, completed_at, last_completed_at, snoozed_until, source_nudge_id, prev_last_completed_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      copyId,
+      copy.listId,
+      copy.title,
+      copy.note,
+      copy.dueAt,
+      copy.recurrenceType,
+      copy.recurrenceParams ? JSON.stringify(copy.recurrenceParams) : null,
+      copy.nextOccurrenceAt,
+      copy.completedAt,
+      copy.lastCompletedAt,
+      copy.snoozedUntil,
+      copy.sourceNudgeId,
+      copy.rollbackLastCompletedAt,
+      now,
+      now,
+    ]
+  );
+
+  return {
+    nudge: { ...nudge, ...updatedNudge, updatedAt: now },
+    copy: { ...copy, id: copyId, createdAt: now, updatedAt: now },
+  };
 }
 
-export async function uncompleteNudge(db: SQLiteDatabase, id: string): Promise<Nudge> {
+export type UncompleteResult =
+  | { kind: 'reverted'; nudge: Nudge }
+  | { kind: 'copyDeleted'; deletedId: string; sourceNudge: Nudge | null };
+
+export async function uncompleteNudge(db: SQLiteDatabase, id: string): Promise<UncompleteResult> {
   const row = await db.getFirstAsync<NudgeRow>('SELECT * FROM nudges WHERE id = ?', [id]);
   if (!row) throw new Error(`Nudge ${id} not found`);
-  const nudge = mapRow(row);
-  if (nudge.completedAt === null) return nudge;
+  const target = mapRow(row);
+  if (target.completedAt === null) return { kind: 'reverted', nudge: target };
+
+  let source: Nudge | null = null;
+  if (target.sourceNudgeId !== null) {
+    const sourceRow = await db.getFirstAsync<NudgeRow>('SELECT * FROM nudges WHERE id = ?', [
+      target.sourceNudgeId,
+    ]);
+    source = sourceRow ? mapRow(sourceRow) : null;
+  }
+
+  const result = computeUncompletion(target, source);
+  const now = Date.now();
 
   await decrementCompletedCount(db);
-  const updatedAt = Date.now();
-  await db.runAsync('UPDATE nudges SET completed_at = NULL, updated_at = ? WHERE id = ?', [
-    updatedAt,
-    id,
-  ]);
-  return { ...nudge, completedAt: null, updatedAt };
+
+  if (result.kind === 'revert') {
+    await db.runAsync(
+      'UPDATE nudges SET completed_at = NULL, last_completed_at = NULL, updated_at = ? WHERE id = ?',
+      [now, id]
+    );
+    return {
+      kind: 'reverted',
+      nudge: { ...target, completedAt: null, lastCompletedAt: null, updatedAt: now },
+    };
+  }
+
+  await db.runAsync('DELETE FROM nudges WHERE id = ?', [result.deletedId]);
+
+  if (result.sourceUpdate === null || source === null) {
+    return { kind: 'copyDeleted', deletedId: result.deletedId, sourceNudge: null };
+  }
+
+  await db.runAsync(
+    'UPDATE nudges SET next_occurrence_at = ?, last_completed_at = ?, updated_at = ? WHERE id = ?',
+    [
+      result.sourceUpdate.nextOccurrenceAt ?? null,
+      result.sourceUpdate.lastCompletedAt ?? null,
+      now,
+      result.sourceUpdate.id,
+    ]
+  );
+
+  return {
+    kind: 'copyDeleted',
+    deletedId: result.deletedId,
+    sourceNudge: { ...source, ...result.sourceUpdate, updatedAt: now },
+  };
 }
 
 export async function snoozeNudge(db: SQLiteDatabase, id: string, until: number): Promise<void> {

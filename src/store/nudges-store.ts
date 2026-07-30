@@ -56,14 +56,25 @@ export const useNudgesStore = create<NudgesState>((set, get) => ({
     set({ nudges: get().nudges.filter((n) => n.id !== id) });
   },
   complete: async (db, list, id) => {
-    const updated = await nudgesDb.completeNudge(db, id);
-    set({ nudges: get().nudges.map((n) => (n.id === id ? updated : n)) });
-    await scheduleNudgeNotification(updated, list);
+    const { nudge, copy } = await nudgesDb.completeNudge(db, id);
+    const nudges = get().nudges.map((n) => (n.id === id ? nudge : n));
+    set({ nudges: copy ? [copy, ...nudges] : nudges });
+    await scheduleNudgeNotification(nudge, list);
   },
   uncomplete: async (db, list, id) => {
-    const updated = await nudgesDb.uncompleteNudge(db, id);
-    set({ nudges: get().nudges.map((n) => (n.id === id ? updated : n)) });
-    await scheduleNudgeNotification(updated, list);
+    const result = await nudgesDb.uncompleteNudge(db, id);
+    if (result.kind === 'reverted') {
+      set({ nudges: get().nudges.map((n) => (n.id === id ? result.nudge : n)) });
+      await scheduleNudgeNotification(result.nudge, list);
+      return;
+    }
+    const sourceNudge = result.sourceNudge;
+    set({
+      nudges: get()
+        .nudges.filter((n) => n.id !== result.deletedId)
+        .map((n) => (sourceNudge && n.id === sourceNudge.id ? sourceNudge : n)),
+    });
+    if (sourceNudge) await scheduleNudgeNotification(sourceNudge, list);
   },
   snooze: async (db, list, id, until) => {
     await nudgesDb.snoozeNudge(db, id, until);

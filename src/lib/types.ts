@@ -9,8 +9,6 @@ export type RecurrenceParams = {
   intervalDays?: number; // used when recurrenceType === 'every_n_days'
 };
 
-export type Priority = 'gentle' | 'firm' | 'relentless';
-
 export type ThemePreference = 'system' | 'light' | 'dark';
 
 export type NudgeList = {
@@ -32,9 +30,11 @@ export type Nudge = {
   recurrenceType: RecurrenceType;
   recurrenceParams: RecurrenceParams | null;
   nextOccurrenceAt: number | null;
-  priority: Priority;
   completedAt: number | null;
+  lastCompletedAt: number | null;
   snoozedUntil: number | null;
+  sourceNudgeId: string | null;
+  rollbackLastCompletedAt: number | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -42,4 +42,6 @@ export type Nudge = {
 export type AppSettings = {
   themePreference: ThemePreference;
   completedCount: number;
+  hideCompletedSection: boolean;
+  defaultNudgeTime: string;
 };
