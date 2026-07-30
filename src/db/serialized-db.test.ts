@@ -41,14 +41,14 @@ describe('getSerializedDb', () => {
 
   it('continues serializing later calls after an earlier one rejects', async () => {
     const db = {
-      runAsync: async (shouldFail: boolean) => {
-        if (shouldFail) throw new Error('boom');
+      runAsync: async (sql: string) => {
+        if (sql === 'fail') throw new Error('boom');
         return 'ok';
       },
     } as unknown as SQLiteDatabase;
     const serialized = getSerializedDb(db);
 
-    await expect(serialized.runAsync(true)).rejects.toThrow('boom');
-    await expect(serialized.runAsync(false)).resolves.toBe('ok');
+    await expect(serialized.runAsync('fail')).rejects.toThrow('boom');
+    await expect(serialized.runAsync('succeed')).resolves.toBe('ok');
   });
 });
