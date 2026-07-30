@@ -1,130 +1,99 @@
 import {
-  ShoppingCart,
+  List,
+  CheckCheck,
+  LayoutGrid,
+  Boxes,
   Home,
   Briefcase,
-  Leaf,
-  Heart,
-  BookOpen,
-  Dumbbell,
-  Plane,
-  Gift,
-  Coffee,
-  Sparkles,
-  Music,
+  Laptop,
+  ShoppingCart,
   Wallet,
+  PiggyBank,
+  Heart,
+  Dumbbell,
+  Stethoscope,
+  BookOpen,
+  GraduationCap,
+  Plane,
   Car,
-  Dog,
+  Utensils,
+  Coffee,
+  Gift,
   Baby,
+  Dog,
+  Leaf,
   Wrench,
   Palette,
-  GraduationCap,
-  Star,
-  Pizza,
-  PiggyBank,
-  Laptop,
-  TreePine,
-  Hammer,
-  Pill,
-  Gamepad2,
-  Utensils,
-  Bike,
-  Stethoscope,
-  Umbrella,
+  Music,
   Camera,
-  Scissors,
-  ShoppingBag,
-  Banknote,
-  Film,
-  Headphones,
-  Cake,
-  Droplet,
-  Flower2,
+  Sparkles,
+  Star,
   type LucideIcon,
 } from 'lucide-react-native';
 
 export type ListIconKey =
-  | 'shopping-cart'
+  | 'list'
+  | 'check-check'
+  | 'layout-grid'
+  | 'boxes'
   | 'home'
   | 'briefcase'
-  | 'leaf'
-  | 'heart'
-  | 'book-open'
-  | 'dumbbell'
-  | 'plane'
-  | 'gift'
-  | 'coffee'
-  | 'sparkles'
-  | 'music'
+  | 'laptop'
+  | 'shopping-cart'
   | 'wallet'
+  | 'piggy-bank'
+  | 'heart'
+  | 'dumbbell'
+  | 'stethoscope'
+  | 'book-open'
+  | 'graduation-cap'
+  | 'plane'
   | 'car'
-  | 'dog'
+  | 'utensils'
+  | 'coffee'
+  | 'gift'
   | 'baby'
+  | 'dog'
+  | 'leaf'
   | 'wrench'
   | 'palette'
-  | 'graduation-cap'
-  | 'star'
-  | 'pizza'
-  | 'piggy-bank'
-  | 'laptop'
-  | 'tree-pine'
-  | 'hammer'
-  | 'pill'
-  | 'gamepad-2'
-  | 'utensils'
-  | 'bike'
-  | 'stethoscope'
-  | 'umbrella'
+  | 'music'
   | 'camera'
-  | 'scissors'
-  | 'shopping-bag'
-  | 'banknote'
-  | 'film'
-  | 'headphones'
-  | 'cake'
-  | 'droplet'
-  | 'flower-2';
+  | 'sparkles'
+  | 'star';
 
 export const LIST_ICONS: Record<ListIconKey, LucideIcon> = {
-  'shopping-cart': ShoppingCart,
+  list: List,
+  'check-check': CheckCheck,
+  'layout-grid': LayoutGrid,
+  boxes: Boxes,
   home: Home,
   briefcase: Briefcase,
-  leaf: Leaf,
-  heart: Heart,
-  'book-open': BookOpen,
-  dumbbell: Dumbbell,
-  plane: Plane,
-  gift: Gift,
-  coffee: Coffee,
-  sparkles: Sparkles,
-  music: Music,
+  laptop: Laptop,
+  'shopping-cart': ShoppingCart,
   wallet: Wallet,
+  'piggy-bank': PiggyBank,
+  heart: Heart,
+  dumbbell: Dumbbell,
+  stethoscope: Stethoscope,
+  'book-open': BookOpen,
+  'graduation-cap': GraduationCap,
+  plane: Plane,
   car: Car,
-  dog: Dog,
+  utensils: Utensils,
+  coffee: Coffee,
+  gift: Gift,
   baby: Baby,
+  dog: Dog,
+  leaf: Leaf,
   wrench: Wrench,
   palette: Palette,
-  'graduation-cap': GraduationCap,
-  star: Star,
-  pizza: Pizza,
-  'piggy-bank': PiggyBank,
-  laptop: Laptop,
-  'tree-pine': TreePine,
-  hammer: Hammer,
-  pill: Pill,
-  'gamepad-2': Gamepad2,
-  utensils: Utensils,
-  bike: Bike,
-  stethoscope: Stethoscope,
-  umbrella: Umbrella,
+  music: Music,
   camera: Camera,
-  scissors: Scissors,
-  'shopping-bag': ShoppingBag,
-  banknote: Banknote,
-  film: Film,
-  headphones: Headphones,
-  cake: Cake,
-  droplet: Droplet,
-  'flower-2': Flower2,
+  sparkles: Sparkles,
+  star: Star,
 };
+
+export const DEFAULT_LIST_ICON: ListIconKey = 'list';
 
 export const LIST_ICON_KEYS = Object.keys(LIST_ICONS) as ListIconKey[];

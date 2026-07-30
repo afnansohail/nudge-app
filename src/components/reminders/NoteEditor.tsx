@@ -8,6 +8,11 @@ type NoteEditorProps = {
   placeholder?: string;
 };
 
+// Pinned explicitly (not via className) so the real TextInput (focused) and the
+// overlay Text (unfocused) render with identical metrics — resolving font/size via
+// nativewind separately for each component let them drift apart visually.
+const noteTextStyle = { fontFamily: 'Outfit_400Regular', fontSize: 13.5, lineHeight: 19 };
+
 export function NoteEditor({
   value,
   onChange,
@@ -28,8 +33,8 @@ export function NoteEditor({
         placeholder={placeholder}
         placeholderTextColor="#C0B8AB"
         textAlignVertical="top"
-        className="font-display text-[13.5px] text-muted dark:text-muted-dark"
-        style={focused ? undefined : { opacity: 0 }}
+        className="text-muted dark:text-muted-dark"
+        style={[noteTextStyle, focused ? undefined : { opacity: 0 }]}
       />
       {!focused && (
         <Pressable
@@ -37,7 +42,7 @@ export function NoteEditor({
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         >
           {value.length === 0 ? (
-            <Text className="font-display text-[13.5px] text-muted dark:text-muted-dark">
+            <Text className="text-muted dark:text-muted-dark" style={noteTextStyle}>
               {placeholder}
             </Text>
           ) : (
@@ -45,7 +50,8 @@ export function NoteEditor({
               {parseNoteLines(value).map((segments, index) => (
                 <Text
                   key={index}
-                  className="font-display text-[13.5px] text-muted dark:text-muted-dark"
+                  className="text-muted dark:text-muted-dark"
+                  style={noteTextStyle}
                 >
                   {segments.map((segment, segmentIndex) =>
                     segment.type === 'link' ? (

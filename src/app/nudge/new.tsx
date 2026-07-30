@@ -1,4 +1,4 @@
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { X } from 'lucide-react-native';
@@ -35,26 +35,32 @@ export default function NewNudgeScreen() {
         <View className="w-9" />
       </View>
 
-      <ScrollView>
-        <NudgeForm
-          lists={lists}
-          initialValues={{
-            title: '',
-            note: null,
-            listId: defaultListId,
-            dueAt: null,
-            recurrenceType: 'none',
-            recurrenceParams: null,
-          }}
-          submitLabel="Set the nudge"
-          onSubmit={async (values) => {
-            const list = lists.find((l) => l.id === values.listId);
-            if (!list) return;
-            await create(db, list, values);
-            goBack();
-          }}
-        />
-      </ScrollView>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <ScrollView keyboardShouldPersistTaps="handled">
+          <NudgeForm
+            lists={lists}
+            initialValues={{
+              title: '',
+              note: null,
+              listId: defaultListId,
+              dueAt: null,
+              recurrenceType: 'none',
+              recurrenceParams: null,
+            }}
+            submitLabel="Set the nudge"
+            onSubmit={async (values) => {
+              const list = lists.find((l) => l.id === values.listId);
+              if (!list) return;
+              await create(db, list, values);
+              goBack();
+            }}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

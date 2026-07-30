@@ -11,6 +11,7 @@ import type { NudgeList, RecurrenceParams, RecurrenceType } from '@/lib/types';
 import { useListsStore } from '@/store/lists-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { LIST_COLORS } from '@/theme/tokens';
+import { DEFAULT_LIST_ICON } from '@/constants/list-icons';
 import { Bell } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useEffect, useState } from 'react';
@@ -160,7 +161,7 @@ export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: Nudge
           <View className="-mx-5" style={{ height: windowHeight * 0.6 }}>
             <ListForm
               key={newListFormKey}
-              initialValues={{ name: '', icon: 'sparkles', color: 'coral' }}
+              initialValues={{ name: '', icon: DEFAULT_LIST_ICON, color: 'coral' }}
               submitLabel="Create list"
               onSubmit={async (values) => {
                 const list = await createList(db, values);

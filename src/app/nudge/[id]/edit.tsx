@@ -1,4 +1,4 @@
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { X, Trash2 } from 'lucide-react-native';
@@ -44,30 +44,36 @@ export default function EditNudgeScreen() {
         </PressableScale>
       </View>
 
-      <ScrollView>
-        <NudgeForm
-          lists={lists}
-          initialValues={{
-            title: nudge.title,
-            note: nudge.note,
-            listId: nudge.listId,
-            dueAt: nudge.nextOccurrenceAt ?? nudge.dueAt,
-            recurrenceType: nudge.recurrenceType,
-            recurrenceParams: nudge.recurrenceParams,
-          }}
-          submitLabel="Save changes"
-          onSubmit={async (values) => {
-            const list = lists.find((l) => l.id === values.listId);
-            if (!list) return;
-            await update(db, list, nudge.id, {
-              ...values,
-              nextOccurrenceAt: values.dueAt,
-              snoozedUntil: null,
-            });
-            goBack();
-          }}
-        />
-      </ScrollView>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <ScrollView keyboardShouldPersistTaps="handled">
+          <NudgeForm
+            lists={lists}
+            initialValues={{
+              title: nudge.title,
+              note: nudge.note,
+              listId: nudge.listId,
+              dueAt: nudge.nextOccurrenceAt ?? nudge.dueAt,
+              recurrenceType: nudge.recurrenceType,
+              recurrenceParams: nudge.recurrenceParams,
+            }}
+            submitLabel="Save changes"
+            onSubmit={async (values) => {
+              const list = lists.find((l) => l.id === values.listId);
+              if (!list) return;
+              await update(db, list, nudge.id, {
+                ...values,
+                nextOccurrenceAt: values.dueAt,
+                snoozedUntil: null,
+              });
+              goBack();
+            }}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

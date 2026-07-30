@@ -6,6 +6,7 @@ import { ListForm } from '@/components/lists/ListForm';
 import { useListsStore } from '@/store/lists-store';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { goBack } from '@/lib/navigation';
+import { DEFAULT_LIST_ICON } from '@/constants/list-icons';
 
 export default function NewListScreen() {
   const db = useDb();
@@ -29,7 +30,7 @@ export default function NewListScreen() {
       </View>
 
       <ListForm
-        initialValues={{ name: '', icon: 'sparkles', color: 'coral' }}
+        initialValues={{ name: '', icon: DEFAULT_LIST_ICON, color: 'coral' }}
         submitLabel="Create list"
         onSubmit={async (values) => {
           await create(db, values);
