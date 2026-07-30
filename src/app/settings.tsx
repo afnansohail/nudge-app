@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, Linking, Alert, DevSettings } from 'react-native';
+import { View, Text, Pressable, Linking, Alert, DevSettings, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deleteDatabaseAsync } from 'expo-sqlite';
 import { useDb } from '@/db/use-db';
 import { X, Bell, Trash2 } from 'lucide-react-native';
 import { useSettingsStore } from '@/store/settings-store';
 import { PressableScale } from '@/components/ui/PressableScale';
+import { AppBottomSheet } from '@/components/ui/AppBottomSheet';
+import { ThemedDatePicker } from '@/components/ui/ThemedDatePicker';
+import { Button } from '@/components/ui/Button';
 import { goBack } from '@/lib/navigation';
 import { getNotificationPermissionStatus, cancelAllNudgeNotifications } from '@/lib/notifications';
 import { DATABASE_NAME } from '@/db/migrations';
 import { SUBTLE_SHADOW } from '@/theme/tokens';
+import { formatNudgeTime, formatTimeString, parseTimeString } from '@/lib/date';
 import type { ThemePreference } from '@/lib/types';
 
 const THEME_OPTIONS: { key: ThemePreference; label: string }[] = [
@@ -22,8 +26,16 @@ export default function SettingsScreen() {
   const db = useDb();
   const themePreference = useSettingsStore((s) => s.settings.themePreference);
   const setThemePreference = useSettingsStore((s) => s.setThemePreference);
+  const hideCompletedSection = useSettingsStore((s) => s.settings.hideCompletedSection);
+  const setHideCompletedSection = useSettingsStore((s) => s.setHideCompletedSection);
+  const defaultNudgeTime = useSettingsStore((s) => s.settings.defaultNudgeTime);
+  const setDefaultNudgeTime = useSettingsStore((s) => s.setDefaultNudgeTime);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
+  const [defaultTimePickerOpen, setDefaultTimePickerOpen] = useState(false);
   const insets = useSafeAreaInsets();
+
+  const { hours: defaultHours, minutes: defaultMinutes } = parseTimeString(defaultNudgeTime);
+  const defaultTimeAsDate = new Date(2000, 0, 1, defaultHours, defaultMinutes);
 
   useEffect(() => {
     getNotificationPermissionStatus().then(setPermissionGranted);
@@ -61,7 +73,7 @@ export default function SettingsScreen() {
         <View className="w-9" />
       </View>
 
-      <View className="gap-6 px-5 pt-6">
+      <ScrollView contentContainerClassName="gap-6 px-5 pt-6 pb-10">
         <View>
           <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
             Appearance
@@ -91,6 +103,60 @@ export default function SettingsScreen() {
             ))}
           </View>
         </View>
+
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 pr-4">
+            <Text className="font-display-medium text-[15px] text-ink dark:text-mist">
+              Show completed nudges in lists
+            </Text>
+            <Text className="mt-0.5 font-display text-xs text-muted dark:text-muted-dark">
+              Turn off to hide the &ldquo;Nailed it&rdquo; section on list screens.
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => setHideCompletedSection(db, !hideCompletedSection)}
+            style={SUBTLE_SHADOW}
+            className={
+              hideCompletedSection
+                ? 'h-8 w-14 justify-center rounded-full bg-[#F1ECE3] px-1 dark:bg-night-surface'
+                : 'h-8 w-14 justify-center rounded-full bg-ink px-1 dark:bg-mist'
+            }
+          >
+            <View
+              className={
+                hideCompletedSection
+                  ? 'h-6 w-6 rounded-full bg-white dark:bg-mist'
+                  : 'h-6 w-6 translate-x-6 rounded-full bg-white dark:bg-night'
+              }
+            />
+          </Pressable>
+        </View>
+
+        <View>
+          <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
+            Default nudge time
+          </Text>
+          <Pressable
+            onPress={() => setDefaultTimePickerOpen(true)}
+            className="rounded-2xl border-[1.5px] border-[#F0EAE1] bg-white px-4 py-3 dark:border-border-dark dark:bg-night-surface"
+          >
+            <Text className="font-mono text-[13.5px] text-ink dark:text-mist">
+              {formatNudgeTime(defaultTimeAsDate.getTime())}
+            </Text>
+          </Pressable>
+          <Text className="mt-1.5 font-display text-xs text-muted dark:text-muted-dark">
+            Used when a nudge has a date but no time set.
+          </Text>
+        </View>
+
+        <AppBottomSheet visible={defaultTimePickerOpen} onClose={() => setDefaultTimePickerOpen(false)}>
+          <ThemedDatePicker
+            mode="time"
+            date={defaultTimeAsDate}
+            onChange={(picked) => setDefaultNudgeTime(db, formatTimeString(picked))}
+          />
+          <Button label="Done" onPress={() => setDefaultTimePickerOpen(false)} />
+        </AppBottomSheet>
 
         {permissionGranted === false && (
           <Pressable
@@ -126,7 +192,7 @@ export default function SettingsScreen() {
             </Pressable>
           </View>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 }

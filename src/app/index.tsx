@@ -1,62 +1,29 @@
-import { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
-import { router } from 'expo-router';
-import { useColorScheme } from 'nativewind';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Settings as SettingsIcon, Plus } from 'lucide-react-native';
-import { useListsStore } from '@/store/lists-store';
-import { useNudgesStore } from '@/store/nudges-store';
-import { useSettingsStore } from '@/store/settings-store';
-import { StatTile } from '@/components/ui/StatTile';
+import { ListRow } from '@/components/lists/ListRow';
 import { Card } from '@/components/ui/Card';
 import { PressableScale } from '@/components/ui/PressableScale';
-import { ListRow } from '@/components/lists/ListRow';
+import { StatTile } from '@/components/ui/StatTile';
+import { formatNudgeDate } from '@/lib/date';
+import { groupNudgesByStatus } from '@/lib/status';
+import { useListsStore } from '@/store/lists-store';
+import { useNudgesStore } from '@/store/nudges-store';
 import { FAB_SHADOW, INK_MIST_ICON_COLOR } from '@/theme/tokens';
-
-const NOW_ISH_WINDOW_MS = 3 * 60 * 60 * 1000;
+import { router } from 'expo-router';
+import { Plus, Settings as SettingsIcon } from 'lucide-react-native';
+import { useColorScheme } from 'nativewind';
+import { useMemo } from 'react';
+import { ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const lists = useListsStore((s) => s.lists);
   const nudges = useNudgesStore((s) => s.nudges);
-  const completedCount = useSettingsStore((s) => s.settings.completedCount);
 
-  const [stats, setStats] = useState({ nowIsh: 0, laterOn: 0, snoozed: 0 });
+  const groups = useMemo(() => groupNudgesByStatus(nudges), [nudges]);
+  const activeCount = groups.upcoming.length + groups.missed.length + groups.snoozed.length;
   const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    const now = Date.now();
-    let nowIsh = 0;
-    let laterOn = 0;
-    let snoozed = 0;
-
-    for (const nudge of nudges) {
-      if (nudge.completedAt !== null) continue;
-      if (nudge.snoozedUntil !== null && nudge.snoozedUntil > now) {
-        snoozed += 1;
-        continue;
-      }
-      const effectiveDate = nudge.nextOccurrenceAt ?? nudge.dueAt;
-      if (effectiveDate === null) continue;
-      if (effectiveDate <= now + NOW_ISH_WINDOW_MS) {
-        nowIsh += 1;
-      } else {
-        laterOn += 1;
-      }
-    }
-
-    setStats({ nowIsh, laterOn, snoozed });
-  }, [nudges]);
-
-  const today = useMemo(
-    () =>
-      new Date().toLocaleDateString(undefined, {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-      }),
-    []
-  );
+  const today = useMemo(() => formatNudgeDate(Date.now()), []);
 
   return (
     <View className="flex-1 bg-cream dark:bg-night">
@@ -84,41 +51,56 @@ export default function HomeScreen() {
             {today} · today
           </Text>
           <Text className="font-display-semibold text-[27px] leading-8 tracking-tight text-ink dark:text-mist">
-            {stats.nowIsh > 0
-              ? `${stats.nowIsh} nudge${stats.nowIsh === 1 ? '' : 's'} left.`
+            {activeCount > 0
+              ? `${activeCount} nudge${activeCount === 1 ? '' : 's'} left.`
               : 'Nothing pressing.'}
             {'\n'}
-            <Text className="text-muted dark:text-muted-dark">Then the day is yours.</Text>
+            <Text className="text-muted dark:text-muted-dark">
+              {activeCount === 0 ? 'The day is yours.' : 'Then the day is yours.'}
+            </Text>
           </Text>
         </View>
 
         <View className="flex-row flex-wrap gap-2.5 px-4 pb-6">
           <View className="basis-[47%] grow">
-            <StatTile value={stats.nowIsh} label="Now-ish" tileColor="#FFD9D2" textColor="#8E2F1A" />
+            <PressableScale onPress={() => router.push('/nudges/upcoming')}>
+              <StatTile
+                value={groups.upcoming.length}
+                label="Upcoming"
+                tileColor="#FFE6B0"
+                textColor="#8A5A08"
+              />
+            </PressableScale>
           </View>
           <View className="basis-[47%] grow">
-            <StatTile
-              value={stats.laterOn}
-              label="Later on"
-              tileColor="#FFE6B0"
-              textColor="#8A5A08"
-            />
+            <PressableScale onPress={() => router.push('/nudges/completed')}>
+              <StatTile
+                value={groups.completed.length}
+                label="Completed"
+                tileColor="#CDECD8"
+                textColor="#1F6B45"
+              />
+            </PressableScale>
           </View>
           <View className="basis-[47%] grow">
-            <StatTile
-              value={stats.snoozed}
-              label="Snoozed"
-              tileColor="#E2DBF7"
-              textColor="#4E3A9E"
-            />
+            <PressableScale onPress={() => router.push('/nudges/snoozed')}>
+              <StatTile
+                value={groups.snoozed.length}
+                label="Snoozed"
+                tileColor="#E2DBF7"
+                textColor="#4E3A9E"
+              />
+            </PressableScale>
           </View>
           <View className="basis-[47%] grow">
-            <StatTile
-              value={completedCount}
-              label="Nailed it"
-              tileColor="#CDECD8"
-              textColor="#1F6B45"
-            />
+            <PressableScale onPress={() => router.push('/nudges/missed')}>
+              <StatTile
+                value={groups.missed.length}
+                label="Missed"
+                tileColor="#FFD9D2"
+                textColor="#8E2F1A"
+              />
+            </PressableScale>
           </View>
         </View>
 
@@ -156,14 +138,6 @@ export default function HomeScreen() {
             + New list
           </Text>
         </PressableScale>
-
-        <View className="px-5 pb-2 pt-7">
-          <Text className="max-w-[200px] font-display text-[13px] leading-tight text-muted dark:text-muted-dark">
-            {stats.nowIsh === 0
-              ? 'Nothing overdue. Suspiciously on top of things.'
-              : "Let's get through these."}
-          </Text>
-        </View>
       </ScrollView>
 
       <View className="absolute bottom-0 right-5" style={{ paddingBottom: insets.bottom + 20 }}>

@@ -1,19 +1,21 @@
-import { useMemo } from 'react';
-import { View, Text, ScrollView } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useDb } from '@/db/use-db';
-import { useColorScheme } from 'nativewind';
-import { ChevronLeft, Settings as SettingsIcon, Plus, Sparkles } from 'lucide-react-native';
-import { useListsStore } from '@/store/lists-store';
-import { useNudgesStore } from '@/store/nudges-store';
-import { bucketNudges } from '@/lib/buckets';
+import { NudgeRow } from '@/components/reminders/NudgeRow';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PressableScale } from '@/components/ui/PressableScale';
-import { NudgeRow } from '@/components/reminders/NudgeRow';
-import { LIST_COLORS, FAB_SHADOW, INK_MIST_ICON_COLOR } from '@/theme/tokens';
+import { useDb } from '@/db/use-db';
+import { formatNudgeDateTime } from '@/lib/date';
 import { goBack } from '@/lib/navigation';
+import { groupNudgesByStatus } from '@/lib/status';
+import { useListsStore } from '@/store/lists-store';
+import { useNudgesStore } from '@/store/nudges-store';
+import { useSettingsStore } from '@/store/settings-store';
+import { FAB_SHADOW, INK_MIST_ICON_COLOR, LIST_COLORS } from '@/theme/tokens';
+import { router, useLocalSearchParams } from 'expo-router';
+import { ChevronLeft, Plus, Settings as SettingsIcon, Sparkles } from 'lucide-react-native';
+import { useColorScheme } from 'nativewind';
+import { useMemo } from 'react';
+import { ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -23,11 +25,12 @@ export default function ListDetailScreen() {
   const complete = useNudgesStore((s) => s.complete);
   const uncomplete = useNudgesStore((s) => s.uncomplete);
   const remove = useNudgesStore((s) => s.remove);
+  const hideCompletedSection = useSettingsStore((s) => s.settings.hideCompletedSection);
   const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
 
   const nudges = useMemo(() => allNudges.filter((n) => n.listId === id), [allNudges, id]);
-  const buckets = useMemo(() => bucketNudges(nudges), [nudges]);
+  const groups = useMemo(() => groupNudgesByStatus(nudges), [nudges]);
 
   if (!list) return null;
 
@@ -63,15 +66,16 @@ export default function ListDetailScreen() {
             {list.name}
           </Text>
           <Text className="mt-1 text-[13.5px] text-muted dark:text-muted-dark">
-            {activeCount} nudge{activeCount === 1 ? '' : 's'} · {buckets.soon.length} want you soon
+            {activeCount} nudge{activeCount === 1 ? '' : 's'}
+            {groups.missed.length > 0 ? ` · ${groups.missed.length} missed` : ''}
           </Text>
         </View>
 
-        {buckets.soon.length > 0 && (
+        {groups.missed.length > 0 && (
           <>
-            <SectionLabel label="Nudging soon" />
+            <SectionLabel label="Missed" />
             <Card className="mx-4 mb-5">
-              {buckets.soon.map((nudge) => (
+              {groups.missed.map((nudge) => (
                 <NudgeRow
                   key={nudge.id}
                   nudge={nudge}
@@ -85,14 +89,15 @@ export default function ListDetailScreen() {
           </>
         )}
 
-        {buckets.whenever.length > 0 && (
+        {groups.upcoming.length > 0 && (
           <>
-            <SectionLabel label="Whenever, honestly" />
+            <SectionLabel label="Upcoming" />
             <Card className="mx-4 mb-5">
-              {buckets.whenever.map((nudge) => (
+              {groups.upcoming.map((nudge) => (
                 <NudgeRow
                   key={nudge.id}
                   nudge={nudge}
+                  timeLabel={formatTimeLabel(nudge)}
                   onToggleComplete={() => complete(db, list, nudge.id)}
                   onDelete={() => remove(db, nudge.id)}
                   onPress={() => router.push(`/nudge/${nudge.id}/edit`)}
@@ -102,7 +107,25 @@ export default function ListDetailScreen() {
           </>
         )}
 
-        {buckets.soon.length === 0 && buckets.whenever.length === 0 && (
+        {groups.snoozed.length > 0 && (
+          <>
+            <SectionLabel label="Snoozed" />
+            <Card className="mx-4 mb-5">
+              {groups.snoozed.map((nudge) => (
+                <NudgeRow
+                  key={nudge.id}
+                  nudge={nudge}
+                  timeLabel={formatTimeLabel(nudge)}
+                  onToggleComplete={() => complete(db, list, nudge.id)}
+                  onDelete={() => remove(db, nudge.id)}
+                  onPress={() => router.push(`/nudge/${nudge.id}/edit`)}
+                />
+              ))}
+            </Card>
+          </>
+        )}
+
+        {groups.missed.length === 0 && groups.upcoming.length === 0 && groups.snoozed.length === 0 && (
           <EmptyState
             Icon={Sparkles}
             title="Nothing here yet"
@@ -110,11 +133,11 @@ export default function ListDetailScreen() {
           />
         )}
 
-        {buckets.completed.length > 0 && (
+        {!hideCompletedSection && groups.completed.length > 0 && (
           <>
-            <SectionLabel label={`Nailed it · ${buckets.completed.length}`} />
+            <SectionLabel label={`Nailed it · ${groups.completed.length}`} />
             <View className="mx-4 mb-5" style={{ opacity: 0.6 }}>
-              {buckets.completed.map((nudge) => (
+              {groups.completed.map((nudge) => (
                 <NudgeRow
                   key={nudge.id}
                   nudge={nudge}
@@ -139,7 +162,7 @@ export default function ListDetailScreen() {
         >
           <Plus size={20} color={INK_MIST_ICON_COLOR[colorScheme ?? 'light']} />
           <Text className="font-display-semibold text-[14.5px] text-cream dark:text-night">
-            Add a nudge
+            Nudge me
           </Text>
         </PressableScale>
       </View>
@@ -158,8 +181,5 @@ function SectionLabel({ label }: { label: string }) {
 function formatTimeLabel(nudge: { nextOccurrenceAt: number | null; dueAt: number | null }): string {
   const timestamp = nudge.nextOccurrenceAt ?? nudge.dueAt;
   if (timestamp === null) return '';
-  return new Date(timestamp).toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return formatNudgeDateTime(timestamp);
 }

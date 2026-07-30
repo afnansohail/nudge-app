@@ -122,6 +122,7 @@ function AppShell() {
       <Stack.Screen name="list/[id]/edit" options={{ presentation: 'modal' }} />
       <Stack.Screen name="nudge/new" options={{ presentation: 'modal' }} />
       <Stack.Screen name="nudge/[id]/edit" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="nudges/[status]" />
       <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
     </Stack>
   );
