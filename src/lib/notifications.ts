@@ -74,6 +74,10 @@ export async function cancelNudgeNotification(nudge: Pick<Nudge, 'id'>): Promise
   if (!Notifications) return;
   try {
     await Notifications.cancelScheduledNotificationAsync(nudge.id);
+    // Cancelling only stops a future scheduled fire — a notification that has
+    // already been delivered (e.g. the one the user just acted on from the
+    // tray) sits there until explicitly dismissed.
+    await Notifications.dismissNotificationAsync(nudge.id);
   } catch (error) {
     console.warn('[notifications] cancel failed:', error);
   }
