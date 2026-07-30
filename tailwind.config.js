@@ -18,6 +18,8 @@ module.exports = {
         'muted-dark': '#8F8A80',
         'accent-dark': '#FF7A57',
         'border-dark': '#2A251E',
+        danger: '#F4674A',
+        'danger-dark': '#FF7A57',
       },
       fontFamily: {
         display: ['Outfit_400Regular'],

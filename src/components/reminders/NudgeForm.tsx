@@ -1,13 +1,20 @@
-import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, Linking } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { useColorScheme } from 'nativewind';
-import { Bell } from 'lucide-react-native';
+import { ListForm } from '@/components/lists/ListForm';
+import { NoteEditor } from '@/components/reminders/NoteEditor';
+import { AppBottomSheet } from '@/components/ui/AppBottomSheet';
 import { Button } from '@/components/ui/Button';
 import { Pill } from '@/components/ui/Pill';
-import { LIST_COLORS, PRIORITY_LABELS, SUBTLE_SHADOW } from '@/theme/tokens';
+import { ThemedDatePicker } from '@/components/ui/ThemedDatePicker';
+import { useDb } from '@/db/use-db';
+import { formatNudgeDate, formatNudgeTime, parseTimeString } from '@/lib/date';
 import { getNotificationPermissionStatus } from '@/lib/notifications';
-import type { NudgeList, Priority, RecurrenceParams, RecurrenceType } from '@/lib/types';
+import type { NudgeList, RecurrenceParams, RecurrenceType } from '@/lib/types';
+import { useListsStore } from '@/store/lists-store';
+import { useSettingsStore } from '@/store/settings-store';
+import { LIST_COLORS } from '@/theme/tokens';
+import { Bell } from 'lucide-react-native';
+import { useColorScheme } from 'nativewind';
+import { useEffect, useState } from 'react';
+import { Linking, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -18,7 +25,6 @@ export type NudgeFormValues = {
   dueAt: number | null;
   recurrenceType: RecurrenceType;
   recurrenceParams: RecurrenceParams | null;
-  priority: Priority;
 };
 
 type NudgeFormProps = {
@@ -32,26 +38,37 @@ export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: Nudge
   const { colorScheme } = useColorScheme();
   const scheme = colorScheme ?? 'light';
 
+  const defaultNudgeTime = useSettingsStore((s) => s.settings.defaultNudgeTime);
+
   const [title, setTitle] = useState(initialValues.title);
   const [note, setNote] = useState(initialValues.note ?? '');
   const [listId, setListId] = useState(initialValues.listId);
-  const [hasDueDate, setHasDueDate] = useState(initialValues.dueAt !== null);
-  const [date, setDate] = useState(new Date(initialValues.dueAt ?? 0));
+  const [selectedDate, setSelectedDate] = useState<Date | null>(
+    initialValues.dueAt !== null ? new Date(initialValues.dueAt) : null
+  );
+  const [selectedTime, setSelectedTime] = useState<Date | null>(
+    initialValues.dueAt !== null ? new Date(initialValues.dueAt) : null
+  );
   const [pickerMode, setPickerMode] = useState<'date' | 'time' | null>(null);
+  const hasSchedule = selectedDate !== null || selectedTime !== null;
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(
     initialValues.recurrenceType
   );
   const [weekdays, setWeekdays] = useState<number[]>(
-    initialValues.recurrenceParams?.weekdays ?? [date.getDay()]
+    initialValues.recurrenceParams?.weekdays ?? [(selectedDate ?? new Date()).getDay()]
   );
   const [dayOfMonth, setDayOfMonth] = useState(
-    String(initialValues.recurrenceParams?.dayOfMonth ?? date.getDate())
+    String(initialValues.recurrenceParams?.dayOfMonth ?? (selectedDate ?? new Date()).getDate())
   );
   const [intervalDays, setIntervalDays] = useState(
     String(initialValues.recurrenceParams?.intervalDays ?? 2)
   );
-  const [priority, setPriority] = useState<Priority>(initialValues.priority);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
+  const [newListSheetOpen, setNewListSheetOpen] = useState(false);
+  const [newListFormKey, setNewListFormKey] = useState(0);
+  const db = useDb();
+  const createList = useListsStore((s) => s.create);
+  const { height: windowHeight } = useWindowDimensions();
 
   useEffect(() => {
     getNotificationPermissionStatus().then(setPermissionGranted);
@@ -77,14 +94,21 @@ export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: Nudge
   };
 
   const handleSubmit = () => {
+    let dueAt: number | null = null;
+    if (hasSchedule) {
+      const base = selectedDate ?? new Date();
+      const { hours, minutes } = selectedTime
+        ? { hours: selectedTime.getHours(), minutes: selectedTime.getMinutes() }
+        : parseTimeString(defaultNudgeTime);
+      dueAt = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, minutes).getTime();
+    }
     onSubmit({
       title: title.trim(),
       note: note.trim().length > 0 ? note.trim() : null,
       listId,
-      dueAt: hasDueDate ? date.getTime() : null,
-      recurrenceType: hasDueDate ? recurrenceType : 'none',
-      recurrenceParams: hasDueDate ? buildRecurrenceParams() : null,
-      priority,
+      dueAt,
+      recurrenceType: hasSchedule ? recurrenceType : 'none',
+      recurrenceParams: hasSchedule ? buildRecurrenceParams() : null,
     });
   };
 
@@ -98,17 +122,11 @@ export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: Nudge
           <TextInput
             value={title}
             onChangeText={setTitle}
-            placeholder="Water the fig tree"
+            placeholder="Remind me to..."
             placeholderTextColor="#C0B8AB"
             className="font-display-medium text-lg text-ink dark:text-mist"
           />
-          <TextInput
-            value={note}
-            onChangeText={setNote}
-            placeholder="Add a note, if it helps…"
-            placeholderTextColor="#C0B8AB"
-            className="mt-1.5 font-display text-[13.5px] text-muted dark:text-muted-dark"
-          />
+          <NoteEditor value={note} onChange={setNote} />
         </View>
       </View>
 
@@ -126,7 +144,32 @@ export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: Nudge
               onPress={() => setListId(list.id)}
             />
           ))}
+          <Pill
+            label="+ New list"
+            onPress={() => {
+              setNewListFormKey((k) => k + 1);
+              setNewListSheetOpen(true);
+            }}
+          />
         </View>
+
+        <AppBottomSheet visible={newListSheetOpen} onClose={() => setNewListSheetOpen(false)}>
+          <Text className="mb-4 font-display-semibold text-base text-ink dark:text-mist">
+            New list
+          </Text>
+          <View className="-mx-5" style={{ height: windowHeight * 0.6 }}>
+            <ListForm
+              key={newListFormKey}
+              initialValues={{ name: '', icon: 'sparkles', color: 'coral' }}
+              submitLabel="Create list"
+              onSubmit={async (values) => {
+                const list = await createList(db, values);
+                setListId(list.id);
+                setNewListSheetOpen(false);
+              }}
+            />
+          </View>
+        </AppBottomSheet>
       </View>
 
       <View>
@@ -134,66 +177,45 @@ export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: Nudge
           When should I nudge?
         </Text>
         <View className="flex-row flex-wrap gap-2">
-          <Pill label="No date" selected={!hasDueDate} onPress={() => setHasDueDate(false)} />
           <Pill
-            label="Pick date & time"
-            selected={hasDueDate}
-            onPress={() => {
-              if (!hasDueDate) {
-                const fresh = new Date(Date.now() + 60 * 60 * 1000);
-                setDate(fresh);
-                setWeekdays([fresh.getDay()]);
-                setDayOfMonth(String(fresh.getDate()));
-              }
-              setHasDueDate(true);
-              setPickerMode('date');
-            }}
+            label={selectedDate ? formatNudgeDate(selectedDate.getTime()) : 'Date'}
+            selected={selectedDate !== null}
+            onPress={() => setPickerMode('date')}
+          />
+          <Pill
+            label={selectedTime ? formatNudgeTime(selectedTime.getTime()) : 'Time'}
+            selected={selectedTime !== null}
+            onPress={() => setPickerMode('time')}
           />
         </View>
 
-        {hasDueDate && (
+        {hasSchedule && (
           <Pressable
-            onPress={() => setPickerMode('date')}
-            className="mt-3 rounded-2xl border-[1.5px] border-[#F0EAE1] bg-white px-4 py-3 dark:border-border-dark dark:bg-night-surface"
+            onPress={() => {
+              setSelectedDate(null);
+              setSelectedTime(null);
+            }}
+            className="mt-2.5 self-start"
           >
-            <Text className="font-mono text-[13.5px] text-ink dark:text-mist">
-              {date.toLocaleDateString(undefined, {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-              })}
-              {'  ·  '}
-              {date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+            <Text className="font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
+              Clear
             </Text>
           </Pressable>
         )}
 
-        {pickerMode && (
-          <DateTimePicker
-            value={date}
-            mode={pickerMode}
-            display="default"
-            onChange={(event, selected) => {
-              if (event.type === 'dismissed' || !selected) {
-                setPickerMode(null);
-                return;
-              }
-              if (pickerMode === 'date') {
-                const next = new Date(date);
-                next.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
-                setDate(next);
-                setPickerMode('time');
-              } else {
-                const next = new Date(date);
-                next.setHours(selected.getHours(), selected.getMinutes());
-                setDate(next);
-                setPickerMode(null);
-              }
+        <AppBottomSheet visible={pickerMode !== null} onClose={() => setPickerMode(null)}>
+          <ThemedDatePicker
+            mode={pickerMode ?? 'date'}
+            date={(pickerMode === 'time' ? selectedTime : selectedDate) ?? new Date()}
+            onChange={(picked) => {
+              if (pickerMode === 'date') setSelectedDate(picked);
+              else setSelectedTime(picked);
             }}
           />
-        )}
+          <Button label="Done" onPress={() => setPickerMode(null)} />
+        </AppBottomSheet>
 
-        {hasDueDate && permissionGranted === false && (
+        {hasSchedule && permissionGranted === false && (
           <Pressable
             onPress={() => Linking.openSettings()}
             className="mt-3 flex-row items-center gap-3 rounded-2xl bg-[#FFE6B0] px-4 py-3.5"
@@ -214,7 +236,7 @@ export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: Nudge
         )}
       </View>
 
-      {hasDueDate && (
+      {hasSchedule && (
         <View>
           <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
             Repeat?
@@ -302,36 +324,6 @@ export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: Nudge
           )}
         </View>
       )}
-
-      <View>
-        <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
-          How pushy should I be?
-        </Text>
-        <View className="flex-row gap-1 rounded-full bg-[#F1ECE3] p-1 dark:bg-night-surface">
-          {(Object.keys(PRIORITY_LABELS) as Priority[]).map((key) => (
-            <Pressable
-              key={key}
-              onPress={() => setPriority(key)}
-              style={priority === key ? SUBTLE_SHADOW : undefined}
-              className={
-                priority === key
-                  ? 'flex-1 items-center rounded-full bg-white py-2.5 dark:bg-night'
-                  : 'flex-1 items-center rounded-full py-2.5'
-              }
-            >
-              <Text
-                className={
-                  priority === key
-                    ? 'font-display-semibold text-sm text-ink dark:text-mist'
-                    : 'font-display-medium text-sm text-muted dark:text-muted-dark'
-                }
-              >
-                {PRIORITY_LABELS[key]}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
 
       <Button label={submitLabel} disabled={title.trim().length === 0} onPress={handleSubmit} />
     </View>

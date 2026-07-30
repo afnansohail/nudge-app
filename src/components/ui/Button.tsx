@@ -6,21 +6,26 @@ type ButtonProps = PressableProps & {
   variant?: 'primary' | 'secondary';
 };
 
-export function Button({ label, variant = 'primary', ...props }: ButtonProps) {
+export function Button({ label, variant = 'primary', disabled, ...props }: ButtonProps) {
   return (
     <PressableScale
+      disabled={disabled}
       className={
-        variant === 'primary'
-          ? 'items-center justify-center rounded-full bg-ink px-6 py-4 dark:bg-mist'
-          : 'items-center justify-center rounded-full bg-cream px-6 py-4 dark:bg-night-surface'
+        disabled
+          ? 'items-center justify-center rounded-full bg-[#F1ECE3] px-6 py-4 dark:bg-night-surface'
+          : variant === 'primary'
+            ? 'items-center justify-center rounded-full bg-ink px-6 py-4 dark:bg-mist'
+            : 'items-center justify-center rounded-full bg-cream px-6 py-4 dark:bg-night-surface'
       }
       {...props}
     >
       <Text
         className={
-          variant === 'primary'
-            ? 'font-display-semibold text-base text-cream dark:text-night'
-            : 'font-display-semibold text-base text-ink dark:text-mist'
+          disabled
+            ? 'font-display-semibold text-base text-muted dark:text-muted-dark'
+            : variant === 'primary'
+              ? 'font-display-semibold text-base text-cream dark:text-night'
+              : 'font-display-semibold text-base text-ink dark:text-mist'
         }
       >
         {label}

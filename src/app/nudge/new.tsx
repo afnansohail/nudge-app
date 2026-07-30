@@ -45,7 +45,6 @@ export default function NewNudgeScreen() {
             dueAt: null,
             recurrenceType: 'none',
             recurrenceParams: null,
-            priority: 'gentle',
           }}
           submitLabel="Set the nudge"
           onSubmit={async (values) => {

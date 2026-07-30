@@ -8,19 +8,15 @@ import { Check, Trash2 } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   withTiming,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
   type SharedValue,
 } from 'react-native-reanimated';
 import { useColorScheme } from 'nativewind';
 import { LIST_COLORS } from '@/theme/tokens';
-import type { Nudge, Priority } from '@/lib/types';
-
-// Priority is display-only; "gentle" is the common case and stays silent so the
-// tag only draws attention for nudges the user marked as more urgent.
-const PRIORITY_TAG: Record<Priority, { label: string; colorKey: 'slate' | 'coral' } | null> = {
-  gentle: null,
-  firm: { label: 'Firm', colorKey: 'slate' },
-  relentless: { label: 'Relentless', colorKey: 'coral' },
-};
+import { getNudgeStatus } from '@/lib/status';
+import type { Nudge } from '@/lib/types';
 
 type NudgeRowProps = {
   nudge: Nudge;
@@ -87,13 +83,14 @@ function SwipeActionPanel({
 }
 
 export function NudgeRow({ nudge, timeLabel, onToggleComplete, onDelete, onPress }: NudgeRowProps) {
-  const isDone = nudge.completedAt !== null;
+  const status = getNudgeStatus(nudge);
+  const isDone = status === 'completed';
+  const isOverdue = status === 'missed';
   const checkStyle = useAnimatedStyle(() => ({
     opacity: withTiming(isDone ? 1 : 0, { duration: 150 }),
   }));
   const { colorScheme } = useColorScheme();
-  const priorityTag = isDone ? null : PRIORITY_TAG[nudge.priority];
-  const prioritySwatch = priorityTag ? LIST_COLORS[priorityTag.colorKey][colorScheme ?? 'light'] : null;
+  const overdueSwatch = isOverdue ? LIST_COLORS.coral[colorScheme ?? 'light'] : null;
   const swipeableRef = useRef<SwipeableMethods>(null);
 
   const handleSwipeOpen = (direction: SwipeDirection) => {
@@ -110,6 +107,11 @@ export function NudgeRow({ nudge, timeLabel, onToggleComplete, onDelete, onPress
   };
 
   return (
+    <Animated.View
+      entering={FadeIn.duration(200)}
+      exiting={FadeOut.duration(220)}
+      layout={LinearTransition.duration(220)}
+    >
     <Swipeable
       ref={swipeableRef}
       onSwipeableOpen={handleSwipeOpen}
@@ -128,7 +130,10 @@ export function NudgeRow({ nudge, timeLabel, onToggleComplete, onDelete, onPress
         </SwipeActionPanel>
       )}
     >
-      <Pressable onPress={onPress} className="flex-row items-center gap-3 px-3.5 py-3">
+      <Pressable
+        onPress={isDone ? undefined : onPress}
+        className="flex-row items-center gap-3 px-3.5 py-3"
+      >
         <Pressable
           onPress={onToggleComplete}
           className={
@@ -146,37 +151,37 @@ export function NudgeRow({ nudge, timeLabel, onToggleComplete, onDelete, onPress
             className={
               isDone
                 ? 'font-display-medium text-[15px] text-muted line-through dark:text-muted-dark'
-                : 'font-display-medium text-[15.5px] text-ink dark:text-mist'
+                : isOverdue
+                  ? 'font-display-medium text-[15.5px] text-danger dark:text-danger-dark'
+                  : 'font-display-medium text-[15.5px] text-ink dark:text-mist'
             }
           >
             {nudge.title}
           </Text>
           {nudge.note ? (
-            <Text className="font-display text-[12.5px] text-muted dark:text-muted-dark">
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              className="font-display text-[12.5px] text-muted dark:text-muted-dark"
+            >
               {nudge.note}
             </Text>
           ) : null}
+          {timeLabel ? (
+            <Text className="mt-0.5 font-mono text-[11px] text-muted dark:text-muted-dark">
+              {timeLabel}
+            </Text>
+          ) : null}
         </View>
-        {timeLabel || prioritySwatch ? (
-          <View className="items-end gap-1">
-            {timeLabel ? (
-              <View className="rounded-full bg-[#FFE6B0] px-[9px] py-1">
-                <Text className="font-mono text-[11px] text-[#8A5A08]">{timeLabel}</Text>
-              </View>
-            ) : null}
-            {priorityTag && prioritySwatch ? (
-              <View
-                style={{ backgroundColor: prioritySwatch.tile }}
-                className="rounded-full px-[9px] py-1"
-              >
-                <Text style={{ color: prioritySwatch.text }} className="font-mono text-[11px]">
-                  {priorityTag.label}
-                </Text>
-              </View>
-            ) : null}
+        {isOverdue && overdueSwatch ? (
+          <View style={{ backgroundColor: overdueSwatch.tile }} className="rounded-full px-[9px] py-1">
+            <Text style={{ color: overdueSwatch.text }} className="font-mono text-[11px]">
+              Overdue
+            </Text>
           </View>
         ) : null}
       </Pressable>
     </Swipeable>
+    </Animated.View>
   );
 }

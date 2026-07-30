@@ -54,7 +54,6 @@ export default function EditNudgeScreen() {
             dueAt: nudge.nextOccurrenceAt ?? nudge.dueAt,
             recurrenceType: nudge.recurrenceType,
             recurrenceParams: nudge.recurrenceParams,
-            priority: nudge.priority,
           }}
           submitLabel="Save changes"
           onSubmit={async (values) => {

@@ -8,7 +8,15 @@ export type ListColorKey =
   | 'lavender'
   | 'rose'
   | 'teal'
-  | 'slate';
+  | 'slate'
+  | 'indigo'
+  | 'emerald'
+  | 'orange'
+  | 'cyan'
+  | 'fuchsia'
+  | 'olive'
+  | 'plum'
+  | 'sky';
 
 type Swatch = { tile: string; dot: string; text: string };
 
@@ -45,15 +53,41 @@ export const LIST_COLORS: Record<ListColorKey, Record<ColorScheme, Swatch>> = {
     light: { tile: '#E4E7EC', dot: '#5C6B7A', text: '#3A454E' },
     dark: { tile: '#2B323A', dot: '#98A6B3', text: '#E4E7EC' },
   },
+  indigo: {
+    light: { tile: '#DCDCFB', dot: '#5C5CE0', text: '#35358E' },
+    dark: { tile: '#29294A', dot: '#7A7AEE', text: '#DCDCFB' },
+  },
+  emerald: {
+    light: { tile: '#C6EED8', dot: '#1D9A5D', text: '#145E3A' },
+    dark: { tile: '#1A3626', dot: '#3FBE81', text: '#C6EED8' },
+  },
+  orange: {
+    light: { tile: '#FFDFC2', dot: '#E8791E', text: '#8A4708' },
+    dark: { tile: '#4A3218', dot: '#FFA352', text: '#FFDFC2' },
+  },
+  cyan: {
+    light: { tile: '#C9F0F5', dot: '#1FA9BF', text: '#0F6672' },
+    dark: { tile: '#1B3A3F', dot: '#4DC7D9', text: '#C9F0F5' },
+  },
+  fuchsia: {
+    light: { tile: '#F9D3F0', dot: '#C93FAE', text: '#7A2467' },
+    dark: { tile: '#3D2038', dot: '#E066C8', text: '#F9D3F0' },
+  },
+  olive: {
+    light: { tile: '#E8E7C2', dot: '#97923A', text: '#5A5720' },
+    dark: { tile: '#3A3920', dot: '#B3AE55', text: '#E8E7C2' },
+  },
+  plum: {
+    light: { tile: '#E6D3F0', dot: '#8B4FBF', text: '#532E73' },
+    dark: { tile: '#33253D', dot: '#A876D6', text: '#E6D3F0' },
+  },
+  sky: {
+    light: { tile: '#D6EAFB', dot: '#4FA3E8', text: '#2A6296' },
+    dark: { tile: '#223447', dot: '#6FBBF5', text: '#D6EAFB' },
+  },
 };
 
 export const LIST_COLOR_KEYS = Object.keys(LIST_COLORS) as ListColorKey[];
-
-export const PRIORITY_LABELS = {
-  gentle: 'Gentle',
-  firm: 'Firm',
-  relentless: 'Relentless',
-} as const;
 
 // Icon color for content sitting on a `bg-ink dark:bg-mist` surface — the surface color
 // inverts between schemes, so a hardcoded icon color disappears in one of the two modes.
