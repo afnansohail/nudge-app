@@ -8,10 +8,17 @@ type NoteEditorProps = {
   placeholder?: string;
 };
 
-// Pinned explicitly (not via className) so the real TextInput (focused) and the
-// overlay Text (unfocused) render with identical metrics — resolving font/size via
-// nativewind separately for each component let them drift apart visually.
-const noteTextStyle = { fontFamily: 'Outfit_400Regular', fontSize: 13.5, lineHeight: 19 };
+// Android's EditText (what a multiline TextInput renders as) carries its own
+// default padding and font-padding that a plain Text never had — zeroing both
+// out here is what actually made focused vs. unfocused match, pinning just
+// fontFamily/fontSize/lineHeight wasn't enough.
+const noteTextStyle = {
+  fontFamily: 'Outfit_400Regular',
+  fontSize: 13.5,
+  lineHeight: 19,
+  padding: 0,
+  includeFontPadding: false,
+} as const;
 
 export function NoteEditor({
   value,

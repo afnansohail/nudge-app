@@ -35,6 +35,7 @@ export type Nudge = {
   snoozedUntil: number | null;
   sourceNudgeId: string | null;
   rollbackLastCompletedAt: number | null;
+  sortOrder: number | null;
   createdAt: number;
   updatedAt: number;
 };

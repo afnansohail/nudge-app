@@ -18,6 +18,7 @@ type NudgeRow = {
   snoozed_until: number | null;
   source_nudge_id: string | null;
   prev_last_completed_at: number | null;
+  sort_order: number | null;
   created_at: number;
   updated_at: number;
 };
@@ -37,6 +38,7 @@ function mapRow(row: NudgeRow): Nudge {
     snoozedUntil: row.snoozed_until,
     sourceNudgeId: row.source_nudge_id,
     rollbackLastCompletedAt: row.prev_last_completed_at,
+    sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -65,8 +67,8 @@ export async function createNudge(db: SQLiteDatabase, input: CreateNudgeInput): 
 
   await db.runAsync(
     `INSERT INTO nudges
-       (id, list_id, title, note, due_at, recurrence_type, recurrence_params, next_occurrence_at, completed_at, last_completed_at, snoozed_until, source_nudge_id, prev_last_completed_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
+       (id, list_id, title, note, due_at, recurrence_type, recurrence_params, next_occurrence_at, completed_at, last_completed_at, snoozed_until, source_nudge_id, prev_last_completed_at, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
     [
       id,
       input.listId,
@@ -95,6 +97,7 @@ export async function createNudge(db: SQLiteDatabase, input: CreateNudgeInput): 
     snoozedUntil: null,
     sourceNudgeId: null,
     rollbackLastCompletedAt: null,
+    sortOrder: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -278,4 +281,19 @@ export async function uncompleteNudge(db: SQLiteDatabase, id: string): Promise<U
 
 export async function snoozeNudge(db: SQLiteDatabase, id: string, until: number): Promise<void> {
   await updateNudge(db, id, { snoozedUntil: until });
+}
+
+// Persists a drag-reordered section: every id gets its array index as its new
+// sort_order, so the whole section switches from date-based to manual ordering.
+export async function reorderNudges(db: SQLiteDatabase, orderedIds: string[]): Promise<void> {
+  const now = Date.now();
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      db.runAsync('UPDATE nudges SET sort_order = ?, updated_at = ? WHERE id = ?', [
+        index,
+        now,
+        id,
+      ])
+    )
+  );
 }

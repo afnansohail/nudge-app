@@ -24,6 +24,7 @@ type NudgesState = {
   complete: (db: SQLiteDatabase, list: NudgeList, id: string) => Promise<void>;
   uncomplete: (db: SQLiteDatabase, list: NudgeList, id: string) => Promise<void>;
   snooze: (db: SQLiteDatabase, list: NudgeList, id: string, until: number) => Promise<void>;
+  reorder: (db: SQLiteDatabase, orderedIds: string[]) => Promise<void>;
   catchUpLapsed: (db: SQLiteDatabase, lists: NudgeList[]) => Promise<void>;
   reset: () => void;
 };
@@ -84,6 +85,17 @@ export const useNudgesStore = create<NudgesState>((set, get) => ({
     set({ nudges: updated });
     const nudge = updated.find((n) => n.id === id);
     if (nudge) await scheduleNudgeNotification(nudge, list);
+  },
+  reorder: async (db, orderedIds) => {
+    await nudgesDb.reorderNudges(db, orderedIds);
+    const now = Date.now();
+    const sortOrderById = new Map(orderedIds.map((id, index) => [id, index]));
+    set({
+      nudges: get().nudges.map((n) => {
+        const sortOrder = sortOrderById.get(n.id);
+        return sortOrder === undefined ? n : { ...n, sortOrder, updatedAt: now };
+      }),
+    });
   },
   catchUpLapsed: async (db, lists) => {
     const now = Date.now();

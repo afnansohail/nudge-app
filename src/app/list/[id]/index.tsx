@@ -14,7 +14,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Plus, Settings as SettingsIcon, Sparkles } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useMemo } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import {
+  NestableDraggableFlatList,
+  NestableScrollContainer,
+} from 'react-native-draggable-flatlist';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ListDetailScreen() {
@@ -25,6 +29,7 @@ export default function ListDetailScreen() {
   const complete = useNudgesStore((s) => s.complete);
   const uncomplete = useNudgesStore((s) => s.uncomplete);
   const remove = useNudgesStore((s) => s.remove);
+  const reorder = useNudgesStore((s) => s.reorder);
   const hideCompletedSection = useSettingsStore((s) => s.settings.hideCompletedSection);
   const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
@@ -39,7 +44,7 @@ export default function ListDetailScreen() {
 
   return (
     <View className="flex-1 bg-cream dark:bg-night">
-      <ScrollView contentContainerClassName="pb-28">
+      <NestableScrollContainer contentContainerStyle={{ paddingBottom: 112 }}>
         <View
           className="flex-row items-center justify-between px-4"
           style={{ paddingTop: insets.top + 16 }}
@@ -93,16 +98,22 @@ export default function ListDetailScreen() {
           <>
             <SectionLabel label="Upcoming" />
             <Card className="mx-4 mb-5">
-              {groups.upcoming.map((nudge) => (
-                <NudgeRow
-                  key={nudge.id}
-                  nudge={nudge}
-                  timeLabel={formatTimeLabel(nudge)}
-                  onToggleComplete={() => complete(db, list, nudge.id)}
-                  onDelete={() => remove(db, nudge.id)}
-                  onPress={() => router.push(`/nudge/${nudge.id}/edit`)}
-                />
-              ))}
+              <NestableDraggableFlatList
+                data={groups.upcoming}
+                keyExtractor={(nudge) => nudge.id}
+                renderItem={({ item, drag, isActive }) => (
+                  <NudgeRow
+                    nudge={item}
+                    timeLabel={formatTimeLabel(item)}
+                    onToggleComplete={() => complete(db, list, item.id)}
+                    onDelete={() => remove(db, item.id)}
+                    onPress={() => router.push(`/nudge/${item.id}/edit`)}
+                    onDragStart={drag}
+                    isDragging={isActive}
+                  />
+                )}
+                onDragEnd={({ data }) => reorder(db, data.map((n) => n.id))}
+              />
             </Card>
           </>
         )}
@@ -149,7 +160,7 @@ export default function ListDetailScreen() {
             </View>
           </>
         )}
-      </ScrollView>
+      </NestableScrollContainer>
 
       <View
         className="absolute bottom-0 right-5 items-end"

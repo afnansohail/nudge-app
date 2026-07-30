@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import * as Crypto from 'expo-crypto';
 
 export const DATABASE_NAME = 'nudge.db';
-const CURRENT_VERSION = 4;
+const CURRENT_VERSION = 5;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -115,6 +115,18 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
     `);
 
     version = 4;
+  }
+
+  if (version === 4) {
+    // Nullable on purpose: a nudge with no sort_order keeps falling back to
+    // due-date ordering (see groupNudgesByStatus's upcoming comparator).
+    // It's only ever set once a list's Upcoming section is manually
+    // drag-reordered, at which point every nudge in that section gets one.
+    await db.execAsync(`
+      ALTER TABLE nudges ADD COLUMN sort_order INTEGER;
+    `);
+
+    version = 5;
   }
 
   await db.execAsync(`PRAGMA user_version = ${version}`);

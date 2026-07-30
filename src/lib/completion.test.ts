@@ -20,6 +20,7 @@ function makeNudge(overrides: Partial<Nudge>): Nudge {
     snoozedUntil: null,
     sourceNudgeId: null,
     rollbackLastCompletedAt: null,
+    sortOrder: null,
     createdAt: 0,
     updatedAt: 0,
     ...overrides,
@@ -75,6 +76,7 @@ describe('computeCompletion', () => {
       snoozedUntil: null,
       sourceNudgeId: 'live-1',
       rollbackLastCompletedAt: NOW - DAY,
+      sortOrder: null,
     });
   });
 

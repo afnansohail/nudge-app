@@ -1,22 +1,22 @@
+import { getNudgeStatus } from '@/lib/status';
+import type { Nudge } from '@/lib/types';
+import { FAB_SHADOW, LIST_COLORS } from '@/theme/tokens';
+import { Check, GripVertical, Trash2 } from 'lucide-react-native';
+import { useColorScheme } from 'nativewind';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Swipeable, {
   SwipeDirection,
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
-import { Check, Trash2 } from 'lucide-react-native';
 import Animated, {
-  useAnimatedStyle,
-  withTiming,
   FadeIn,
   FadeOut,
   LinearTransition,
+  useAnimatedStyle,
+  withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
-import { useColorScheme } from 'nativewind';
-import { LIST_COLORS } from '@/theme/tokens';
-import { getNudgeStatus } from '@/lib/status';
-import type { Nudge } from '@/lib/types';
 
 type NudgeRowProps = {
   nudge: Nudge;
@@ -24,18 +24,10 @@ type NudgeRowProps = {
   onToggleComplete: () => void;
   onDelete: () => void;
   onPress: () => void;
+  onDragStart?: () => void;
+  isDragging?: boolean;
 };
 
-// Swipeable's row content has no background of its own (Card paints one
-// shared background behind the whole list), so nothing actually clips the
-// action panel as the row slides — the library just flips it from invisible
-// to fully-visible-at-full-width the moment any drag is detected. Swipeable
-// also needs our rendered content to have a fixed layout width (it measures
-// that once, at gesture start, to compute open thresholds), so we can't just
-// make the panel's own layout width animate. Instead: a static-width
-// container for layout purposes, holding a separately-animated fill that's
-// absolutely positioned and grows from 0 -> ACTION_WIDTH as `translation`
-// (the live drag distance) increases.
 const ACTION_WIDTH = 96;
 
 function SwipeActionPanel({
@@ -57,9 +49,6 @@ function SwipeActionPanel({
     const dragged = align === 'left' ? translation.value : -translation.value;
     const fill = Math.max(0, Math.min(dragged, ACTION_WIDTH));
     const progress = fill / ACTION_WIDTH;
-    // Keep the icon centered within the currently-revealed fill (not the
-    // full static container), so it rides along with the growing edge
-    // instead of sitting frozen at the box's final, fully-open position.
     const centerOffset = align === 'left' ? (fill - ACTION_WIDTH) / 2 : (ACTION_WIDTH - fill) / 2;
     return {
       opacity: progress,
@@ -82,7 +71,15 @@ function SwipeActionPanel({
   );
 }
 
-export function NudgeRow({ nudge, timeLabel, onToggleComplete, onDelete, onPress }: NudgeRowProps) {
+export function NudgeRow({
+  nudge,
+  timeLabel,
+  onToggleComplete,
+  onDelete,
+  onPress,
+  onDragStart,
+  isDragging,
+}: NudgeRowProps) {
   const status = getNudgeStatus(nudge);
   const isDone = status === 'completed';
   const isOverdue = status === 'missed';
@@ -95,10 +92,6 @@ export function NudgeRow({ nudge, timeLabel, onToggleComplete, onDelete, onPress
 
   const handleSwipeOpen = (direction: SwipeDirection) => {
     swipeableRef.current?.close();
-    // Swipeable's `direction` is which way the finger dragged, not which
-    // panel is showing: dragging right (direction 'right') reveals the
-    // left/complete panel, dragging left (direction 'left') reveals the
-    // right/delete panel.
     if (direction === SwipeDirection.RIGHT) {
       onToggleComplete();
     } else {
@@ -111,6 +104,10 @@ export function NudgeRow({ nudge, timeLabel, onToggleComplete, onDelete, onPress
       entering={FadeIn.duration(200)}
       exiting={FadeOut.duration(220)}
       layout={LinearTransition.duration(220)}
+    >
+    <Animated.View
+      style={isDragging ? [FAB_SHADOW, { opacity: 0.97 }] : { opacity: 1 }}
+      className={isDragging ? 'overflow-hidden rounded-2xl bg-white dark:bg-night-surface' : undefined}
     >
     <Swipeable
       ref={swipeableRef}
@@ -180,8 +177,14 @@ export function NudgeRow({ nudge, timeLabel, onToggleComplete, onDelete, onPress
             </Text>
           </View>
         ) : null}
+        {onDragStart ? (
+          <Pressable onLongPress={onDragStart} hitSlop={10} className="py-1 pl-1">
+            <GripVertical size={18} color="#C0B8AB" />
+          </Pressable>
+        ) : null}
       </Pressable>
     </Swipeable>
+    </Animated.View>
     </Animated.View>
   );
 }

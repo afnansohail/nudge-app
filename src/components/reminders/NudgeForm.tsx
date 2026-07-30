@@ -78,8 +78,6 @@ export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: Nudge
   const toggleWeekday = (day: number) => {
     setWeekdays((prev) => {
       if (prev.includes(day)) {
-        // Keep at least one day selected — an empty set silently falls back to
-        // "today", which looks unselected but isn't, so don't let the UI get there.
         if (prev.length === 1) return prev;
         return prev.filter((d) => d !== day);
       }
@@ -182,11 +180,13 @@ export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: Nudge
             label={selectedDate ? formatNudgeDate(selectedDate.getTime()) : 'Date'}
             selected={selectedDate !== null}
             onPress={() => setPickerMode('date')}
+            onClear={() => setSelectedDate(null)}
           />
           <Pill
             label={selectedTime ? formatNudgeTime(selectedTime.getTime()) : 'Time'}
             selected={selectedTime !== null}
             onPress={() => setPickerMode('time')}
+            onClear={() => setSelectedTime(null)}
           />
         </View>
 
@@ -213,7 +213,18 @@ export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: Nudge
               else setSelectedTime(picked);
             }}
           />
-          <Button label="Done" onPress={() => setPickerMode(null)} />
+          <Button
+            label="Done"
+            onPress={() => {
+              // The picker always shows a concrete date/time (defaulting to
+              // now), but only calls onChange once the user actually
+              // interacts with it — so confirm whatever's currently shown
+              // even if they tapped Done without touching anything.
+              if (pickerMode === 'date' && selectedDate === null) setSelectedDate(new Date());
+              if (pickerMode === 'time' && selectedTime === null) setSelectedTime(new Date());
+              setPickerMode(null);
+            }}
+          />
         </AppBottomSheet>
 
         {hasSchedule && permissionGranted === false && (

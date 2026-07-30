@@ -40,6 +40,7 @@ export function computeCompletion(nudge: Nudge, now: number): CompletionResult {
       snoozedUntil: null,
       sourceNudgeId: nudge.id,
       rollbackLastCompletedAt: nudge.lastCompletedAt,
+      sortOrder: null,
     },
   };
 }

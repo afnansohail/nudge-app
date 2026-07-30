@@ -1,3 +1,4 @@
+import { isSameCalendarDay } from '@/lib/date';
 import type { Nudge } from '@/lib/types';
 
 export type NudgeStatus = 'completed' | 'snoozed' | 'missed' | 'upcoming';
@@ -17,6 +18,13 @@ export function getNudgeStatus(nudge: Nudge, now: number = Date.now()): NudgeSta
   return 'upcoming';
 }
 
+export function isDueToday(nudge: Nudge, now: number = Date.now()): boolean {
+  if (nudge.completedAt !== null) return false;
+  const date = nudge.nextOccurrenceAt ?? nudge.dueAt;
+  if (date === null) return false;
+  return isSameCalendarDay(date, now);
+}
+
 export type NudgeGroups = Record<NudgeStatus, Nudge[]>;
 
 function effectiveDate(nudge: Nudge): number {
@@ -30,7 +38,12 @@ export function groupNudgesByStatus(nudges: Nudge[], now: number = Date.now()): 
     groups[getNudgeStatus(nudge, now)].push(nudge);
   }
 
-  groups.upcoming.sort((a, b) => effectiveDate(a) - effectiveDate(b));
+  groups.upcoming.sort((a, b) => {
+    if (a.sortOrder !== null && b.sortOrder !== null) return a.sortOrder - b.sortOrder;
+    if (a.sortOrder !== null) return -1;
+    if (b.sortOrder !== null) return 1;
+    return effectiveDate(a) - effectiveDate(b);
+  });
   groups.missed.sort((a, b) => effectiveDate(a) - effectiveDate(b));
   groups.snoozed.sort((a, b) => (a.snoozedUntil ?? 0) - (b.snoozedUntil ?? 0));
   groups.completed.sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0));

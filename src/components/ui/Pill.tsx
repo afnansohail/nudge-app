@@ -1,19 +1,21 @@
 import { Pressable, Text, View } from 'react-native';
 import { useColorScheme } from 'nativewind';
+import { X } from 'lucide-react-native';
+import { INK_MIST_ICON_COLOR } from '@/theme/tokens';
 
-// Unselected label color is an inline style, not the `text-ink/70 dark:text-mist/70`
-// utility class — see Card.tsx's comment on why opacity/shadow utilities are avoided.
 const UNSELECTED_LABEL_COLOR = { light: 'rgba(26, 24, 21, 0.7)', dark: 'rgba(245, 241, 234, 0.7)' };
 
 type PillProps = {
   label: string;
   selected?: boolean;
   onPress?: () => void;
+  onClear?: () => void;
   dotColor?: string;
 };
 
-export function Pill({ label, selected, onPress, dotColor }: PillProps) {
+export function Pill({ label, selected, onPress, onClear, dotColor }: PillProps) {
   const { colorScheme } = useColorScheme();
+  const scheme = colorScheme ?? 'light';
 
   return (
     <Pressable
@@ -31,10 +33,15 @@ export function Pill({ label, selected, onPress, dotColor }: PillProps) {
       ) : null}
       <Text
         className={selected ? 'font-display-medium text-sm text-cream dark:text-night' : 'font-display-medium text-sm'}
-        style={selected ? undefined : { color: UNSELECTED_LABEL_COLOR[colorScheme ?? 'light'] }}
+        style={selected ? undefined : { color: UNSELECTED_LABEL_COLOR[scheme] }}
       >
         {label}
       </Text>
+      {selected && onClear ? (
+        <Pressable onPress={onClear} hitSlop={8}>
+          <X size={13} color={INK_MIST_ICON_COLOR[scheme]} />
+        </Pressable>
+      ) : null}
     </Pressable>
   );
 }

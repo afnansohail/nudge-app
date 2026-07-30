@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/Card';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { StatTile } from '@/components/ui/StatTile';
 import { formatNudgeDate } from '@/lib/date';
-import { groupNudgesByStatus } from '@/lib/status';
+import { groupNudgesByStatus, isDueToday } from '@/lib/status';
 import { useListsStore } from '@/store/lists-store';
 import { useNudgesStore } from '@/store/nudges-store';
 import { FAB_SHADOW, INK_MIST_ICON_COLOR } from '@/theme/tokens';
@@ -19,7 +19,7 @@ export default function HomeScreen() {
   const nudges = useNudgesStore((s) => s.nudges);
 
   const groups = useMemo(() => groupNudgesByStatus(nudges), [nudges]);
-  const activeCount = groups.upcoming.length + groups.missed.length + groups.snoozed.length;
+  const todayCount = useMemo(() => nudges.filter((n) => isDueToday(n)).length, [nudges]);
   const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
 
@@ -51,12 +51,12 @@ export default function HomeScreen() {
             {today} · today
           </Text>
           <Text className="font-display-semibold text-[27px] leading-8 tracking-tight text-ink dark:text-mist">
-            {activeCount > 0
-              ? `${activeCount} nudge${activeCount === 1 ? '' : 's'} left.`
+            {todayCount > 0
+              ? `${todayCount} nudge${todayCount === 1 ? '' : 's'} left today.`
               : 'Nothing pressing.'}
             {'\n'}
             <Text className="text-muted dark:text-muted-dark">
-              {activeCount === 0 ? 'The day is yours.' : 'Then the day is yours.'}
+              {todayCount === 0 ? 'The day is yours.' : 'Then the day is yours.'}
             </Text>
           </Text>
         </View>
