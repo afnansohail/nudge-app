@@ -25,6 +25,7 @@ type NudgesState = {
   uncomplete: (db: SQLiteDatabase, list: NudgeList, id: string) => Promise<void>;
   snooze: (db: SQLiteDatabase, list: NudgeList, id: string, until: number) => Promise<void>;
   catchUpLapsed: (db: SQLiteDatabase, lists: NudgeList[]) => Promise<void>;
+  reset: () => void;
 };
 
 export const useNudgesStore = create<NudgesState>((set, get) => ({
@@ -34,6 +35,7 @@ export const useNudgesStore = create<NudgesState>((set, get) => ({
     const nudges = await nudgesDb.getAllNudges(db);
     set({ nudges, loaded: true });
   },
+  reset: () => set({ nudges: [], loaded: false }),
   create: async (db, list, input) => {
     const nudge = await nudgesDb.createNudge(db, input);
     await scheduleNudgeNotification(nudge, list);

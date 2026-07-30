@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, Linking, Alert, DevSettings, ScrollView } from 'react-native';
+import { View, Text, Pressable, Linking, Alert, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deleteDatabaseAsync } from 'expo-sqlite';
 import { useDb } from '@/db/use-db';
 import { X, Bell, Trash2 } from 'lucide-react-native';
 import { useSettingsStore } from '@/store/settings-store';
+import { useListsStore } from '@/store/lists-store';
+import { useNudgesStore } from '@/store/nudges-store';
+import { useAppResetStore } from '@/store/app-reset-store';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { AppBottomSheet } from '@/components/ui/AppBottomSheet';
 import { ThemedDatePicker } from '@/components/ui/ThemedDatePicker';
@@ -33,6 +36,10 @@ export default function SettingsScreen() {
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [defaultTimePickerOpen, setDefaultTimePickerOpen] = useState(false);
   const insets = useSafeAreaInsets();
+  const resetLists = useListsStore((s) => s.reset);
+  const resetNudges = useNudgesStore((s) => s.reset);
+  const resetSettings = useSettingsStore((s) => s.reset);
+  const bumpAppReset = useAppResetStore((s) => s.bump);
 
   const { hours: defaultHours, minutes: defaultMinutes } = parseTimeString(defaultNudgeTime);
   const defaultTimeAsDate = new Date(2000, 0, 1, defaultHours, defaultMinutes);
@@ -42,7 +49,7 @@ export default function SettingsScreen() {
   }, []);
 
   const resetAllData = () => {
-    Alert.alert('Reset all data', 'This deletes every list and nudge on this device. For dev use only.', [
+    Alert.alert('Reset all data', 'This deletes every list and nudge on this device. This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Reset',
@@ -51,7 +58,10 @@ export default function SettingsScreen() {
           await cancelAllNudgeNotifications();
           await db.closeAsync();
           await deleteDatabaseAsync(DATABASE_NAME);
-          DevSettings.reload();
+          resetLists();
+          resetNudges();
+          resetSettings();
+          bumpAppReset();
         },
       },
     ]);
@@ -178,20 +188,18 @@ export default function SettingsScreen() {
           </Pressable>
         )}
 
-        {__DEV__ && (
-          <View>
-            <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
-              Dev
-            </Text>
-            <Pressable
-              onPress={resetAllData}
-              className="flex-row items-center gap-3 rounded-2xl bg-[#FFD9D2] px-4 py-3.5"
-            >
-              <Trash2 size={18} color="#8E2F1A" />
-              <Text className="font-display-medium text-sm text-[#8E2F1A]">Reset all data</Text>
-            </Pressable>
-          </View>
-        )}
+        <View>
+          <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
+            Danger zone
+          </Text>
+          <Pressable
+            onPress={resetAllData}
+            className="flex-row items-center gap-3 rounded-2xl bg-[#FFD9D2] px-4 py-3.5"
+          >
+            <Trash2 size={18} color="#8E2F1A" />
+            <Text className="font-display-medium text-sm text-[#8E2F1A]">Reset all data</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </View>
   );

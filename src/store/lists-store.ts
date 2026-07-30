@@ -22,6 +22,7 @@ type ListsState = {
     patch: Partial<Pick<NudgeList, 'name' | 'icon' | 'color' | 'sortOrder'>>
   ) => Promise<void>;
   remove: (db: SQLiteDatabase, id: string) => Promise<void>;
+  reset: () => void;
 };
 
 export const useListsStore = create<ListsState>((set, get) => ({
@@ -31,6 +32,7 @@ export const useListsStore = create<ListsState>((set, get) => ({
     const lists = await listsDb.getAllLists(db);
     set({ lists, loaded: true });
   },
+  reset: () => set({ lists: [], loaded: false }),
   create: async (db, input) => {
     const list = await listsDb.createList(db, input);
     set({ lists: [...get().lists, list] });

@@ -21,15 +21,18 @@ import { useDb } from '@/db/use-db';
 import { useListsStore } from '@/store/lists-store';
 import { useNudgesStore } from '@/store/nudges-store';
 import { useSettingsStore } from '@/store/settings-store';
+import { useAppResetStore } from '@/store/app-reset-store';
 import { ensureNotificationSetup, attachNotificationResponseHandler } from '@/lib/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const generation = useAppResetStore((s) => s.generation);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
+        <SQLiteProvider key={generation} databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
           <AppShell />
         </SQLiteProvider>
       </SafeAreaProvider>

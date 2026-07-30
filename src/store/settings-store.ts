@@ -10,20 +10,24 @@ type SettingsState = {
   setThemePreference: (db: SQLiteDatabase, pref: ThemePreference) => Promise<void>;
   setHideCompletedSection: (db: SQLiteDatabase, hide: boolean) => Promise<void>;
   setDefaultNudgeTime: (db: SQLiteDatabase, time: string) => Promise<void>;
+  reset: () => void;
+};
+
+const DEFAULT_SETTINGS: AppSettings = {
+  themePreference: 'system',
+  completedCount: 0,
+  hideCompletedSection: false,
+  defaultNudgeTime: '09:00',
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
-  settings: {
-    themePreference: 'system',
-    completedCount: 0,
-    hideCompletedSection: false,
-    defaultNudgeTime: '09:00',
-  },
+  settings: DEFAULT_SETTINGS,
   loaded: false,
   load: async (db) => {
     const settings = await settingsDb.getSettings(db);
     set({ settings, loaded: true });
   },
+  reset: () => set({ settings: DEFAULT_SETTINGS, loaded: false }),
   setThemePreference: async (db, pref) => {
     await settingsDb.updateThemePreference(db, pref);
     set((state) => ({ settings: { ...state.settings, themePreference: pref } }));
