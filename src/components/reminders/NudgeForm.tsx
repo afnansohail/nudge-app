@@ -12,9 +12,10 @@ import { useListsStore } from '@/store/lists-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { LIST_COLORS } from '@/theme/tokens';
 import { DEFAULT_LIST_ICON } from '@/constants/list-icons';
+import { useNavigation } from 'expo-router';
 import { Bell } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -33,11 +34,20 @@ type NudgeFormProps = {
   initialValues: NudgeFormValues;
   onSubmit: (values: NudgeFormValues) => void;
   submitLabel: string;
+  autoFocusTitle?: boolean;
 };
 
-export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: NudgeFormProps) {
+export function NudgeForm({
+  lists,
+  initialValues,
+  onSubmit,
+  submitLabel,
+  autoFocusTitle = false,
+}: NudgeFormProps) {
   const { colorScheme } = useColorScheme();
   const scheme = colorScheme ?? 'light';
+  const navigation = useNavigation();
+  const titleInputRef = useRef<TextInput>(null);
 
   const defaultNudgeTime = useSettingsStore((s) => s.settings.defaultNudgeTime);
 
@@ -74,6 +84,20 @@ export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: Nudge
   useEffect(() => {
     getNotificationPermissionStatus().then(setPermissionGranted);
   }, []);
+
+  useEffect(() => {
+    if (!autoFocusTitle) return;
+    // Focus after the push transition finishes so the keyboard doesn't
+    // fight the screen animation (a bare autoFocus can pop the keyboard
+    // mid-transition and cause jank on iOS).
+    const nativeStackNavigation = navigation as unknown as {
+      addListener(event: 'transitionEnd', callback: () => void): () => void;
+    };
+    const unsubscribe = nativeStackNavigation.addListener('transitionEnd', () => {
+      titleInputRef.current?.focus();
+    });
+    return unsubscribe;
+  }, [autoFocusTitle, navigation]);
 
   const toggleWeekday = (day: number) => {
     setWeekdays((prev) => {
@@ -119,6 +143,7 @@ export function NudgeForm({ lists, initialValues, onSubmit, submitLabel }: Nudge
         </Text>
         <View className="rounded-[20px] bg-white px-4 py-3.5 dark:bg-night-surface">
           <TextInput
+            ref={titleInputRef}
             value={title}
             onChangeText={setTitle}
             placeholder="Remind me to..."

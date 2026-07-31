@@ -52,6 +52,7 @@ export default function NewNudgeScreen() {
               recurrenceParams: null,
             }}
             submitLabel="Set the nudge"
+            autoFocusTitle
             onSubmit={async (values) => {
               const list = lists.find((l) => l.id === values.listId);
               if (!list) return;
