@@ -85,6 +85,16 @@ export async function cancelAllNudgeNotifications(): Promise<void> {
   }
 }
 
+const NOTE_PREVIEW_MAX_CHARS = 100;
+
+function truncateNotePreview(note: string): string {
+  const trimmed = note.trim();
+  if (trimmed.length <= NOTE_PREVIEW_MAX_CHARS) return trimmed;
+  const cut = trimmed.slice(0, NOTE_PREVIEW_MAX_CHARS);
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd()}...`;
+}
+
 export async function scheduleNudgeNotification(
   nudge: Nudge,
   list: Pick<NudgeList, 'name'>
@@ -103,7 +113,8 @@ export async function scheduleNudgeNotification(
       identifier: nudge.id,
       content: {
         title: nudge.title,
-        body: list.name,
+        subtitle: list.name,
+        body: nudge.note ? truncateNotePreview(nudge.note) : undefined,
         categoryIdentifier: NUDGE_CATEGORY,
         data: { nudgeId: nudge.id },
         sticky: true,
