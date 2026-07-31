@@ -5,7 +5,7 @@ const path = require('path');
 
 const TILE_SERVICE_CLASS = 'NewNudgeTileService';
 const TILE_ICON_NAME = 'ic_tile_new_nudge';
-const TILE_LABEL = 'New nudge';
+const TILE_LABEL = 'Nudge me';
 
 function withTileServiceSourceFile(config) {
   return withDangerousMod(config, [
