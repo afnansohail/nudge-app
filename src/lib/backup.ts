@@ -1,11 +1,7 @@
 import type { ListIconKey } from '@/constants/list-icons';
-import type { ListColorKey } from '@/theme/tokens';
 import type { Nudge, NudgeList, RecurrenceParams, RecurrenceType } from '@/lib/types';
+import type { ListColorKey } from '@/theme/tokens';
 
-// NOTE: this file must never do a *value* import from '@/constants/list-icons'
-// (only `import type`) — that module re-exports real lucide-react-native icon
-// components, and vitest's transform can't handle that module graph. Valid
-// icon/color keys are passed in by the caller (src/db/backup.ts) instead.
 
 export const EXPORT_VERSION = 1;
 
