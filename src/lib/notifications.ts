@@ -106,6 +106,8 @@ export async function scheduleNudgeNotification(
         body: list.name,
         categoryIdentifier: NUDGE_CATEGORY,
         data: { nudgeId: nudge.id },
+        sticky: true,
+        autoDismiss: false,
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
