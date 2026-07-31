@@ -1,56 +1,89 @@
-# Welcome to your Expo app 👋
+# Nudge
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Nudge is a local-first reminders app for things that don't fit a calendar — recurring chores,
+one-off errands, "someday" tasks. Reminders ("nudges") live in color/icon-coded lists, can repeat
+on a schedule, be snoozed, and trigger local notifications. Everything is stored on-device in
+SQLite, with JSON export/import for backup.
 
-## Get started
+Built with [Expo](https://expo.dev) (React Native) and [Expo Router](https://docs.expo.dev/router/introduction/).
 
-1. Install dependencies
+## Screenshots
 
-   ```bash
-   npm install
-   ```
+<p>
+  <img src="./assets/images/screenshots/ss1.jpeg" width="100%" alt="Nudge app screenshot 1" />
+  <br />
+  <br />
+  <img src="./assets/images/screenshots/ss2.jpeg" width="100%" alt="Nudge app screenshot 2" />
+</p>
 
-2. Start the app
+## Stack
 
-   ```bash
-   npx expo start
-   ```
+- Expo SDK 54 + Expo Router (file-based routing)
+- `expo-sqlite` for local storage, with versioned migrations
+- `zustand` for app state
+- `nativewind` / Tailwind for styling
+- `expo-notifications` for scheduled reminders
+- A custom Android Quick Settings tile (native Kotlin `TileService`) for creating a nudge without opening the app
 
-In the output, you'll find options to open the app in a
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Getting started
 
 ```bash
-npm run reset-project
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+This covers most day-to-day development — open the app in [Expo Go](https://expo.dev/go), an
+Android emulator, or an iOS simulator.
 
-### Other setup steps
+### Testing the Quick Settings tile (Android)
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+The "create nudge" Quick Settings tile ([plugins/tile-service](./plugins/tile-service)) modifies
+native Android project files via a config plugin, so it isn't available in Expo Go. To test it,
+build and run a development client instead:
+
+```bash
+npx expo run:android
+# or, for a shareable dev build:
+eas build --profile development --platform android
+```
+
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm start` | Start the Metro bundler / Expo dev server |
+| `npm run android` | Start and open on a connected Android device/emulator |
+| `npm run ios` | Start and open in the iOS simulator |
+| `npm run web` | Start the web build |
+| `npm run lint` | Lint with `expo lint` |
+| `npm test` | Run the unit test suite (Vitest) |
+
+## Project structure
+
+```
+src/
+  app/          Expo Router screens (lists, nudges, settings) — file-based routing
+  components/   UI building blocks, grouped by feature (lists, reminders, ui)
+  store/        zustand stores (lists, nudges, settings, app reset)
+  db/           expo-sqlite access, migrations, backup import/export
+  lib/          Framework-agnostic logic: recurrence rules, notifications, completion,
+                backup serialization, date/status helpers
+  theme/        Design tokens (colors, shadows)
+  constants/    Shared static data (e.g. list icon set)
+plugins/
+  tile-service/ Config plugin + native source for the Android Quick Settings tile
+android/        Generated native Android project (includes the tile service wiring)
+```
+
+## Data & backups
+
+All data is stored locally in SQLite (see `src/db/migrations.ts` for schema history). Settings →
+Export produces a JSON backup (`src/lib/backup.ts`, `src/db/backup.ts`); Import validates and
+merges a backup file back in via `expo-document-picker`.
 
 ## Learn more
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- [Expo documentation (v54)](https://docs.expo.dev/versions/v54.0.0/) — this project pins to the
+  v54 docs; check AGENTS.md before assuming a newer API is available.
+- [Expo Router docs](https://docs.expo.dev/router/introduction/)
