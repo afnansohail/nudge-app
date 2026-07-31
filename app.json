@@ -43,7 +43,8 @@
           "icon": "./assets/images/android-icon-monochrome.png",
           "color": "#F4674A"
         }
-      ]
+      ],
+      "./plugins/tile-service/withNewNudgeTile.js"
     ],
     "experiments": {
       "typedRoutes": true,
