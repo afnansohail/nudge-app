@@ -48,7 +48,7 @@ export default function HomeScreen() {
 
         <View className="px-4 pb-4 pt-5">
           <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
-            {today} · today
+            {today}
           </Text>
           <Text className="font-display-semibold text-[27px] leading-8 tracking-tight text-ink dark:text-mist">
             {todayCount > 0
