@@ -134,10 +134,7 @@ export function attachNotificationResponseHandler(handlers: {
         if (actionId === ACTION_SNOOZE_1H) {
           await handlers.onSnooze(nudgeId, Date.now() + 60 * 60 * 1000);
         } else if (actionId === ACTION_SNOOZE_TOMORROW) {
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          tomorrow.setHours(9, 0, 0, 0);
-          await handlers.onSnooze(nudgeId, tomorrow.getTime());
+          await handlers.onSnooze(nudgeId, Date.now() + 24 * 60 * 60 * 1000);
         } else if (actionId === ACTION_MARK_DONE) {
           await handlers.onComplete(nudgeId);
         }

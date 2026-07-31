@@ -83,11 +83,13 @@ export function NudgeRow({
   const status = getNudgeStatus(nudge);
   const isDone = status === 'completed';
   const isOverdue = status === 'missed';
+  const isSnoozed = status === 'snoozed';
   const checkStyle = useAnimatedStyle(() => ({
     opacity: withTiming(isDone ? 1 : 0, { duration: 150 }),
   }));
   const { colorScheme } = useColorScheme();
   const overdueSwatch = isOverdue ? LIST_COLORS.coral[colorScheme ?? 'light'] : null;
+  const snoozedSwatch = isSnoozed ? LIST_COLORS.lavender[colorScheme ?? 'light'] : null;
   const swipeableRef = useRef<SwipeableMethods>(null);
 
   const handleSwipeOpen = (direction: SwipeDirection) => {
@@ -174,6 +176,13 @@ export function NudgeRow({
           <View style={{ backgroundColor: overdueSwatch.tile }} className="rounded-full px-[9px] py-1">
             <Text style={{ color: overdueSwatch.text }} className="font-mono text-[11px]">
               Overdue
+            </Text>
+          </View>
+        ) : null}
+        {isSnoozed && snoozedSwatch ? (
+          <View style={{ backgroundColor: snoozedSwatch.tile }} className="rounded-full px-[9px] py-1">
+            <Text style={{ color: snoozedSwatch.text }} className="font-mono text-[11px]">
+              Snoozed
             </Text>
           </View>
         ) : null}
