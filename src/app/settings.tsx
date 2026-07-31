@@ -1,23 +1,31 @@
-import { useEffect, useState } from 'react';
-import { View, Text, Pressable, Linking, Alert, ScrollView } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { deleteDatabaseAsync } from 'expo-sqlite';
+import { AppBottomSheet } from '@/components/ui/AppBottomSheet';
+import { Button } from '@/components/ui/Button';
+import { PressableScale } from '@/components/ui/PressableScale';
+import { ThemedDatePicker } from '@/components/ui/ThemedDatePicker';
+import { importBackup, prepareImport } from '@/db/backup';
+import { DATABASE_NAME } from '@/db/migrations';
 import { useDb } from '@/db/use-db';
-import { X, Bell, Trash2 } from 'lucide-react-native';
-import { useSettingsStore } from '@/store/settings-store';
+import { buildExportPayload, parseImportPayload } from '@/lib/backup';
+import { formatNudgeTime, formatTimeString, parseTimeString } from '@/lib/date';
+import { goBack } from '@/lib/navigation';
+import {
+  cancelAllNudgeNotifications,
+  getNotificationPermissionStatus,
+  scheduleNudgeNotification,
+} from '@/lib/notifications';
+import type { ThemePreference } from '@/lib/types';
+import { useAppResetStore } from '@/store/app-reset-store';
 import { useListsStore } from '@/store/lists-store';
 import { useNudgesStore } from '@/store/nudges-store';
-import { useAppResetStore } from '@/store/app-reset-store';
-import { PressableScale } from '@/components/ui/PressableScale';
-import { AppBottomSheet } from '@/components/ui/AppBottomSheet';
-import { ThemedDatePicker } from '@/components/ui/ThemedDatePicker';
-import { Button } from '@/components/ui/Button';
-import { goBack } from '@/lib/navigation';
-import { getNotificationPermissionStatus, cancelAllNudgeNotifications } from '@/lib/notifications';
-import { DATABASE_NAME } from '@/db/migrations';
+import { useSettingsStore } from '@/store/settings-store';
 import { SUBTLE_SHADOW } from '@/theme/tokens';
-import { formatNudgeTime, formatTimeString, parseTimeString } from '@/lib/date';
-import type { ThemePreference } from '@/lib/types';
+import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
+import { deleteDatabaseAsync } from 'expo-sqlite';
+import { Bell, Download, Trash2, Upload, X } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Linking, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const THEME_OPTIONS: { key: ThemePreference; label: string }[] = [
   { key: 'system', label: 'System' },
@@ -40,6 +48,10 @@ export default function SettingsScreen() {
   const resetNudges = useNudgesStore((s) => s.reset);
   const resetSettings = useSettingsStore((s) => s.reset);
   const bumpAppReset = useAppResetStore((s) => s.bump);
+  const lists = useListsStore((s) => s.lists);
+  const nudges = useNudgesStore((s) => s.nudges);
+  const appendImportedLists = useListsStore((s) => s.appendImported);
+  const appendImportedNudges = useNudgesStore((s) => s.appendImported);
 
   const { hours: defaultHours, minutes: defaultMinutes } = parseTimeString(defaultNudgeTime);
   const defaultTimeAsDate = new Date(2000, 0, 1, defaultHours, defaultMinutes);
@@ -47,6 +59,77 @@ export default function SettingsScreen() {
   useEffect(() => {
     getNotificationPermissionStatus().then(setPermissionGranted);
   }, []);
+
+  const exportData = async () => {
+    try {
+      const payload = buildExportPayload(lists, nudges, Date.now());
+      await Share.share({
+        title: 'Nudge backup',
+        message: JSON.stringify(payload, null, 2),
+      });
+    } catch {
+      Alert.alert('Export failed', 'Something went wrong while preparing your backup.');
+    }
+  };
+
+  const importData = async () => {
+    const picked = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+    if (picked.canceled || !picked.assets[0]) return;
+
+    let content: string;
+    try {
+      content = await new File(picked.assets[0].uri).text();
+    } catch {
+      Alert.alert('Import failed', 'Could not read that file.');
+      return;
+    }
+
+    const parsed = parseImportPayload(content);
+    if (!parsed.ok) {
+      Alert.alert('Import failed', parsed.error);
+      return;
+    }
+
+    const sanitized = prepareImport(parsed.payload);
+    if (sanitized.lists.length === 0 && sanitized.nudges.length === 0) {
+      Alert.alert(
+        'Nothing to import',
+        'That file didn’t contain any lists or nudges Nudge recognizes.'
+      );
+      return;
+    }
+
+    const listCount = sanitized.lists.length;
+    const nudgeCount = sanitized.nudges.length;
+    Alert.alert(
+      'Import data',
+      `Import ${listCount} list${listCount === 1 ? '' : 's'} and ${nudgeCount} nudge${nudgeCount === 1 ? '' : 's'}? This adds to your existing data — nothing is removed.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Import',
+          onPress: async () => {
+            const result = await importBackup(db, sanitized);
+            appendImportedLists(result.lists);
+            appendImportedNudges(result.nudges);
+
+            const listById = new Map(result.lists.map((list) => [list.id, list]));
+            await Promise.all(
+              result.nudges.map((nudge) => {
+                const list = listById.get(nudge.listId);
+                return list ? scheduleNudgeNotification(nudge, list) : null;
+              })
+            );
+
+            Alert.alert(
+              'Import complete',
+              `Added ${result.lists.length} list${result.lists.length === 1 ? '' : 's'} and ${result.nudges.length} nudge${result.nudges.length === 1 ? '' : 's'}.`
+            );
+          },
+        },
+      ]
+    );
+  };
 
   const resetAllData = () => {
     Alert.alert('Reset all data', 'This deletes every list and nudge on this device. This cannot be undone.', [
@@ -187,6 +270,42 @@ export default function SettingsScreen() {
             </View>
           </Pressable>
         )}
+
+        <View>
+          <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
+            Backup
+          </Text>
+          <View className="gap-2">
+            <Pressable
+              onPress={exportData}
+              className="flex-row items-center gap-3 rounded-2xl border-[1.5px] border-[#F0EAE1] bg-white px-4 py-3.5 dark:border-border-dark dark:bg-night-surface"
+            >
+              <Download size={18} color="#6B655C" />
+              <View className="flex-1">
+                <Text className="font-display-medium text-sm text-ink dark:text-mist">
+                  Export data
+                </Text>
+                <Text className="mt-0.5 font-display text-xs text-muted dark:text-muted-dark">
+                  Share a backup of your lists and active nudges.
+                </Text>
+              </View>
+            </Pressable>
+            <Pressable
+              onPress={importData}
+              className="flex-row items-center gap-3 rounded-2xl border-[1.5px] border-[#F0EAE1] bg-white px-4 py-3.5 dark:border-border-dark dark:bg-night-surface"
+            >
+              <Upload size={18} color="#6B655C" />
+              <View className="flex-1">
+                <Text className="font-display-medium text-sm text-ink dark:text-mist">
+                  Import data
+                </Text>
+                <Text className="mt-0.5 font-display text-xs text-muted dark:text-muted-dark">
+                  Add lists and nudges from a backup file.
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+        </View>
 
         <View>
           <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">

@@ -26,6 +26,7 @@ type NudgesState = {
   snooze: (db: SQLiteDatabase, list: NudgeList, id: string, until: number) => Promise<void>;
   reorder: (db: SQLiteDatabase, orderedIds: string[]) => Promise<void>;
   catchUpLapsed: (db: SQLiteDatabase, lists: NudgeList[]) => Promise<void>;
+  appendImported: (nudges: Nudge[]) => void;
   reset: () => void;
 };
 
@@ -141,4 +142,5 @@ export const useNudgesStore = create<NudgesState>((set, get) => ({
       })
     );
   },
+  appendImported: (nudges) => set({ nudges: [...nudges, ...get().nudges] }),
 }));
