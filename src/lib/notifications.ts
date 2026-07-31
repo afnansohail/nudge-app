@@ -1,6 +1,6 @@
-import { LogBox, Platform } from 'react-native';
-import type * as NotificationsType from 'expo-notifications';
 import type { Nudge, NudgeList } from '@/lib/types';
+import type * as NotificationsType from 'expo-notifications';
+import { LogBox, Platform } from 'react-native';
 
 const CHANNEL_ID = 'nudges';
 const NUDGE_CATEGORY = 'nudge-actions';
@@ -9,10 +9,6 @@ export const ACTION_SNOOZE_1H = 'snooze-1h';
 export const ACTION_SNOOZE_TOMORROW = 'snooze-tomorrow';
 export const ACTION_MARK_DONE = 'mark-done';
 
-// SDK 53+ removed *remote* push from Expo Go on Android; expo-notifications logs a
-// console.error about that the moment it's imported, which LogBox renders as a full-screen
-// crash overlay even though it's benign here — this app only ever uses local, on-device
-// scheduled notifications, which still work fine in Expo Go. Silence just that one message.
 LogBox.ignoreLogs([
   'Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go',
 ]);
@@ -45,9 +41,9 @@ export async function ensureNotificationSetup(): Promise<void> {
     }
 
     await Notifications.setNotificationCategoryAsync(NUDGE_CATEGORY, [
+      { identifier: ACTION_MARK_DONE, buttonTitle: 'Done' },
       { identifier: ACTION_SNOOZE_1H, buttonTitle: 'Snooze 1hr' },
-      { identifier: ACTION_SNOOZE_TOMORROW, buttonTitle: 'Snooze to tomorrow' },
-      { identifier: ACTION_MARK_DONE, buttonTitle: 'Mark done' },
+      { identifier: ACTION_SNOOZE_TOMORROW, buttonTitle: 'Snooze 1d' },
     ]);
 
     const { status } = await Notifications.getPermissionsAsync();
@@ -74,9 +70,6 @@ export async function cancelNudgeNotification(nudge: Pick<Nudge, 'id'>): Promise
   if (!Notifications) return;
   try {
     await Notifications.cancelScheduledNotificationAsync(nudge.id);
-    // Cancelling only stops a future scheduled fire — a notification that has
-    // already been delivered (e.g. the one the user just acted on from the
-    // tray) sits there until explicitly dismissed.
     await Notifications.dismissNotificationAsync(nudge.id);
   } catch (error) {
     console.warn('[notifications] cancel failed:', error);

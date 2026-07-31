@@ -96,7 +96,7 @@ export default function HomeScreen() {
             <PressableScale onPress={() => router.push('/nudges/missed')}>
               <StatTile
                 value={groups.missed.length}
-                label="Missed"
+                label="Overdue"
                 tileColor="#FFD9D2"
                 textColor="#8E2F1A"
               />
