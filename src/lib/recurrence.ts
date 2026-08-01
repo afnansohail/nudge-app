@@ -37,8 +37,6 @@ export function computeNextOccurrence(
   return null;
 }
 
-// Advances a recurring nudge's next-occurrence time past `now` in one step, without
-// firing a notification for every occurrence missed while the app was closed.
 export function catchUpOccurrence(
   nextOccurrenceAt: number,
   type: RecurrenceType,
@@ -48,14 +46,27 @@ export function catchUpOccurrence(
   if (type === 'none' || nextOccurrenceAt >= now) return nextOccurrenceAt;
 
   let next = nextOccurrenceAt;
-  // Bounded: a lapse of years of daily occurrences still resolves in a few thousand
-  // steps, and a malformed rule that never advances must not spin forever.
-  for (let i = 0; i < 10_000 && next < now; i++) {
+  for (let i = 0; i < 10_000; i++) {
     const computed = computeNextOccurrence(new Date(next), type, params);
     if (!computed || computed.getTime() <= next) break;
+    if (computed.getTime() >= now) break;
     next = computed.getTime();
   }
   return next;
+}
+
+export function formatRecurrenceLabel(
+  type: RecurrenceType,
+  params: RecurrenceParams | null
+): string | null {
+  if (type === 'daily') return 'Daily';
+  if (type === 'weekly') return 'Weekly';
+  if (type === 'monthly') return 'Monthly';
+  if (type === 'every_n_days') {
+    const interval = Math.max(1, params?.intervalDays ?? 1);
+    return interval === 1 ? 'Daily' : `Every ${interval} days`;
+  }
+  return null;
 }
 
 function addDays(date: Date, days: number): Date {
@@ -66,8 +77,6 @@ function addDays(date: Date, days: number): Date {
 
 function nextMonthlyOccurrence(from: Date, dayOfMonth: number): Date {
   const next = new Date(from);
-  // Reset to day 1 first: setting month directly on a date whose day-of-month
-  // exceeds the target month's length rolls over into the month after (JS Date quirk).
   next.setDate(1);
   next.setMonth(next.getMonth() + 1);
   const daysInTargetMonth = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();

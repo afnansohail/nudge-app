@@ -91,3 +91,11 @@ export async function deleteList(db: SQLiteDatabase, id: string): Promise<void> 
   }
   await db.runAsync('DELETE FROM lists WHERE id = ?', [id]);
 }
+
+export async function reorderLists(db: SQLiteDatabase, orderedIds: string[]): Promise<void> {
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      db.runAsync('UPDATE lists SET sort_order = ? WHERE id = ?', [index, id])
+    )
+  );
+}

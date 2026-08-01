@@ -45,4 +45,5 @@ export type AppSettings = {
   completedCount: number;
   hideCompletedSection: boolean;
   defaultNudgeTime: string;
+  showSummaryCards: boolean;
 };

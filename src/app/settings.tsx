@@ -39,6 +39,8 @@ export default function SettingsScreen() {
   const setThemePreference = useSettingsStore((s) => s.setThemePreference);
   const hideCompletedSection = useSettingsStore((s) => s.settings.hideCompletedSection);
   const setHideCompletedSection = useSettingsStore((s) => s.setHideCompletedSection);
+  const showSummaryCards = useSettingsStore((s) => s.settings.showSummaryCards);
+  const setShowSummaryCards = useSettingsStore((s) => s.setShowSummaryCards);
   const defaultNudgeTime = useSettingsStore((s) => s.settings.defaultNudgeTime);
   const setDefaultNudgeTime = useSettingsStore((s) => s.setDefaultNudgeTime);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
@@ -218,8 +220,36 @@ export default function SettingsScreen() {
             <View
               className={
                 hideCompletedSection
-                  ? 'h-6 w-6 rounded-full bg-white dark:bg-mist'
+                  ? 'h-6 w-6 translate-x-0 rounded-full bg-white dark:bg-mist'
                   : 'h-6 w-6 translate-x-6 rounded-full bg-white dark:bg-night'
+              }
+            />
+          </Pressable>
+        </View>
+
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 pr-4">
+            <Text className="font-display-medium text-[15px] text-ink dark:text-mist">
+              Show summary cards
+            </Text>
+            <Text className="mt-0.5 font-display text-xs text-muted dark:text-muted-dark">
+              Turn off to hide the Upcoming/Completed/Snoozed/Overdue tiles on the home screen.
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => setShowSummaryCards(db, !showSummaryCards)}
+            style={SUBTLE_SHADOW}
+            className={
+              showSummaryCards
+                ? 'h-8 w-14 justify-center rounded-full bg-ink px-1 dark:bg-mist'
+                : 'h-8 w-14 justify-center rounded-full bg-[#F1ECE3] px-1 dark:bg-night-surface'
+            }
+          >
+            <View
+              className={
+                showSummaryCards
+                  ? 'h-6 w-6 translate-x-6 rounded-full bg-white dark:bg-night'
+                  : 'h-6 w-6 translate-x-0 rounded-full bg-white dark:bg-mist'
               }
             />
           </Pressable>

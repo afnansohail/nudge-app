@@ -2,21 +2,30 @@ import { ListRow } from '@/components/lists/ListRow';
 import { Card } from '@/components/ui/Card';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { StatTile } from '@/components/ui/StatTile';
+import { useDb } from '@/db/use-db';
 import { formatNudgeDate } from '@/lib/date';
 import { groupNudgesByStatus, isDueToday } from '@/lib/status';
 import { useListsStore } from '@/store/lists-store';
 import { useNudgesStore } from '@/store/nudges-store';
+import { useSettingsStore } from '@/store/settings-store';
 import { FAB_SHADOW, INK_MIST_ICON_COLOR } from '@/theme/tokens';
 import { router } from 'expo-router';
 import { Plus, Settings as SettingsIcon } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useMemo } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import {
+  NestableDraggableFlatList,
+  NestableScrollContainer,
+} from 'react-native-draggable-flatlist';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
+  const db = useDb();
   const lists = useListsStore((s) => s.lists);
+  const reorderLists = useListsStore((s) => s.reorder);
   const nudges = useNudgesStore((s) => s.nudges);
+  const showSummaryCards = useSettingsStore((s) => s.settings.showSummaryCards);
 
   const groups = useMemo(() => groupNudgesByStatus(nudges), [nudges]);
   const todayCount = useMemo(() => nudges.filter((n) => isDueToday(n)).length, [nudges]);
@@ -27,7 +36,7 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1 bg-cream dark:bg-night">
-      <ScrollView contentContainerClassName="pb-28">
+      <NestableScrollContainer contentContainerStyle={{ paddingBottom: 112 }}>
         <View
           className="flex-row items-center justify-between px-4"
           style={{ paddingTop: insets.top + 16 }}
@@ -61,48 +70,50 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <View className="flex-row flex-wrap gap-2.5 px-4 pb-6">
-          <View className="basis-[47%] grow">
-            <PressableScale onPress={() => router.push('/nudges/upcoming')}>
-              <StatTile
-                value={groups.upcoming.length}
-                label="Upcoming"
-                tileColor="#FFE6B0"
-                textColor="#8A5A08"
-              />
-            </PressableScale>
+        {showSummaryCards && (
+          <View className="flex-row flex-wrap gap-2.5 px-4 pb-6">
+            <View className="basis-[47%] grow">
+              <PressableScale onPress={() => router.push('/nudges/upcoming')}>
+                <StatTile
+                  value={groups.upcoming.length}
+                  label="Upcoming"
+                  tileColor="#FFE6B0"
+                  textColor="#8A5A08"
+                />
+              </PressableScale>
+            </View>
+            <View className="basis-[47%] grow">
+              <PressableScale onPress={() => router.push('/nudges/completed')}>
+                <StatTile
+                  value={groups.completed.length}
+                  label="Completed"
+                  tileColor="#CDECD8"
+                  textColor="#1F6B45"
+                />
+              </PressableScale>
+            </View>
+            <View className="basis-[47%] grow">
+              <PressableScale onPress={() => router.push('/nudges/snoozed')}>
+                <StatTile
+                  value={groups.snoozed.length}
+                  label="Snoozed"
+                  tileColor="#E2DBF7"
+                  textColor="#4E3A9E"
+                />
+              </PressableScale>
+            </View>
+            <View className="basis-[47%] grow">
+              <PressableScale onPress={() => router.push('/nudges/missed')}>
+                <StatTile
+                  value={groups.missed.length}
+                  label="Overdue"
+                  tileColor="#FFD9D2"
+                  textColor="#8E2F1A"
+                />
+              </PressableScale>
+            </View>
           </View>
-          <View className="basis-[47%] grow">
-            <PressableScale onPress={() => router.push('/nudges/completed')}>
-              <StatTile
-                value={groups.completed.length}
-                label="Completed"
-                tileColor="#CDECD8"
-                textColor="#1F6B45"
-              />
-            </PressableScale>
-          </View>
-          <View className="basis-[47%] grow">
-            <PressableScale onPress={() => router.push('/nudges/snoozed')}>
-              <StatTile
-                value={groups.snoozed.length}
-                label="Snoozed"
-                tileColor="#E2DBF7"
-                textColor="#4E3A9E"
-              />
-            </PressableScale>
-          </View>
-          <View className="basis-[47%] grow">
-            <PressableScale onPress={() => router.push('/nudges/missed')}>
-              <StatTile
-                value={groups.missed.length}
-                label="Overdue"
-                tileColor="#FFD9D2"
-                textColor="#8E2F1A"
-              />
-            </PressableScale>
-          </View>
-        </View>
+        )}
 
         <View className="flex-row items-baseline justify-between px-5 pb-2.5">
           <Text className="font-display-semibold text-[17px] text-ink dark:text-mist">
@@ -114,20 +125,26 @@ export default function HomeScreen() {
         </View>
 
         <Card className="mx-4">
-          {lists.map((list, index) => {
-            const count = nudges.filter(
-              (n) => n.listId === list.id && n.completedAt === null
-            ).length;
-            return (
-              <ListRow
-                key={list.id}
-                list={list}
-                count={count}
-                isLast={index === lists.length - 1}
-                onPress={() => router.push(`/list/${list.id}`)}
-              />
-            );
-          })}
+          <NestableDraggableFlatList
+            data={lists}
+            keyExtractor={(list) => list.id}
+            renderItem={({ item, drag, isActive, getIndex }) => {
+              const count = nudges.filter(
+                (n) => n.listId === item.id && n.completedAt === null
+              ).length;
+              return (
+                <ListRow
+                  list={item}
+                  count={count}
+                  isLast={getIndex() === lists.length - 1}
+                  onPress={() => router.push(`/list/${item.id}`)}
+                  onDragStart={drag}
+                  isDragging={isActive}
+                />
+              );
+            }}
+            onDragEnd={({ data }) => reorderLists(db, data.map((l) => l.id))}
+          />
         </Card>
 
         <PressableScale
@@ -138,7 +155,7 @@ export default function HomeScreen() {
             + New list
           </Text>
         </PressableScale>
-      </ScrollView>
+      </NestableScrollContainer>
 
       <View className="absolute bottom-0 right-5" style={{ paddingBottom: insets.bottom + 20 }}>
         <PressableScale

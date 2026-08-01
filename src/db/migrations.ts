@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import * as Crypto from 'expo-crypto';
 
 export const DATABASE_NAME = 'nudge.db';
-const CURRENT_VERSION = 5;
+const CURRENT_VERSION = 6;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -127,6 +127,14 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
     `);
 
     version = 5;
+  }
+
+  if (version === 5) {
+    await db.execAsync(`
+      ALTER TABLE settings ADD COLUMN show_summary_cards INTEGER NOT NULL DEFAULT 1;
+    `);
+
+    version = 6;
   }
 
   await db.execAsync(`PRAGMA user_version = ${version}`);

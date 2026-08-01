@@ -51,18 +51,30 @@ describe('catchUpOccurrence', () => {
     expect(catchUpOccurrence(next, 'daily', null, now)).toBe(next);
   });
 
-  it('jumps straight to the next future occurrence without visiting every missed day', () => {
+  it('skips every missed day but leaves the most recent one due, not the future one', () => {
     const staleOccurrence = new Date(2026, 0, 1, 8, 30).getTime();
     const now = new Date(2026, 0, 10, 12, 0).getTime(); // 9 days later, app was closed
     const caughtUp = catchUpOccurrence(staleOccurrence, 'daily', null, now);
-    expect(new Date(caughtUp)).toEqual(new Date(2026, 0, 11, 8, 30));
+    // Jan 10, 8:30 already happened (it's before `now`) and hasn't been acted on yet,
+    // so it must stay pending — jumping to Jan 11 would silently discard it.
+    expect(new Date(caughtUp)).toEqual(new Date(2026, 0, 10, 8, 30));
   });
 
   it('catches up every_n_days without drifting off the original schedule', () => {
     const staleOccurrence = new Date(2026, 0, 1, 8, 30).getTime();
     const now = new Date(2026, 0, 10, 0, 0).getTime();
     const caughtUp = catchUpOccurrence(staleOccurrence, 'every_n_days', { intervalDays: 3 }, now);
-    expect(new Date(caughtUp)).toEqual(new Date(2026, 0, 10, 8, 30));
+    // Occurrences are Jan 1, 4, 7, 10. Jan 10 8:30 is still ahead of `now` (Jan 10 00:00),
+    // so the most recent due one is Jan 7 — that's what should remain pending.
+    expect(new Date(caughtUp)).toEqual(new Date(2026, 0, 7, 8, 30));
+  });
+
+  it('leaves a same-day occurrence that just became due untouched', () => {
+    // A recurring nudge created for today with a time already in the past must keep
+    // showing as due today, not skip straight to tomorrow's occurrence.
+    const dueEarlierToday = new Date(2026, 0, 1, 8, 30).getTime();
+    const now = new Date(2026, 0, 1, 9, 0).getTime();
+    expect(catchUpOccurrence(dueEarlierToday, 'daily', null, now)).toBe(dueEarlierToday);
   });
 
   it('never returns a past time and never spins forever for one-time nudges', () => {

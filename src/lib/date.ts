@@ -27,7 +27,7 @@ export function formatNudgeTime(timestamp: number): string {
 }
 
 export function formatNudgeDateTime(timestamp: number, now: number = Date.now()): string {
-  return `${formatNudgeDate(timestamp, now)}  ·  ${formatNudgeTime(timestamp)}`;
+  return `${formatNudgeDate(timestamp, now)} · ${formatNudgeTime(timestamp)}`;
 }
 
 export function parseTimeString(time: string): { hours: number; minutes: number } {

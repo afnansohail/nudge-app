@@ -1,3 +1,4 @@
+import { formatRecurrenceLabel } from '@/lib/recurrence';
 import { getNudgeStatus } from '@/lib/status';
 import type { Nudge } from '@/lib/types';
 import { FAB_SHADOW, LIST_COLORS } from '@/theme/tokens';
@@ -84,6 +85,7 @@ export function NudgeRow({
   const isDone = status === 'completed';
   const isOverdue = status === 'missed';
   const isSnoozed = status === 'snoozed';
+  const recurrenceLabel = formatRecurrenceLabel(nudge.recurrenceType, nudge.recurrenceParams);
   const checkStyle = useAnimatedStyle(() => ({
     opacity: withTiming(isDone ? 1 : 0, { duration: 150 }),
   }));
@@ -107,9 +109,9 @@ export function NudgeRow({
       exiting={FadeOut.duration(220)}
       layout={LinearTransition.duration(220)}
     >
-    <Animated.View
-      style={isDragging ? [FAB_SHADOW, { opacity: 0.97 }] : { opacity: 1 }}
-      className={isDragging ? 'overflow-hidden rounded-2xl bg-white dark:bg-night-surface' : undefined}
+    <Animated.View style={isDragging ? [FAB_SHADOW, { opacity: 0.97 }] : { opacity: 1 }}>
+    <View
+      className={isDragging ? 'overflow-hidden rounded-3xl bg-white dark:bg-night-surface' : undefined}
     >
     <Swipeable
       ref={swipeableRef}
@@ -169,6 +171,7 @@ export function NudgeRow({
           {timeLabel ? (
             <Text className="mt-0.5 font-mono text-[11px] text-muted dark:text-muted-dark">
               {timeLabel}
+              {recurrenceLabel ? ` · ${recurrenceLabel}` : ''}
             </Text>
           ) : null}
         </View>
@@ -193,6 +196,7 @@ export function NudgeRow({
         ) : null}
       </Pressable>
     </Swipeable>
+    </View>
     </Animated.View>
     </Animated.View>
   );

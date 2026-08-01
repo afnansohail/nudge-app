@@ -10,6 +10,7 @@ type SettingsState = {
   setThemePreference: (db: SQLiteDatabase, pref: ThemePreference) => Promise<void>;
   setHideCompletedSection: (db: SQLiteDatabase, hide: boolean) => Promise<void>;
   setDefaultNudgeTime: (db: SQLiteDatabase, time: string) => Promise<void>;
+  setShowSummaryCards: (db: SQLiteDatabase, show: boolean) => Promise<void>;
   reset: () => void;
 };
 
@@ -18,6 +19,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   completedCount: 0,
   hideCompletedSection: false,
   defaultNudgeTime: '09:00',
+  showSummaryCards: true,
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -39,5 +41,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setDefaultNudgeTime: async (db, time) => {
     await settingsDb.updateDefaultNudgeTime(db, time);
     set((state) => ({ settings: { ...state.settings, defaultNudgeTime: time } }));
+  },
+  setShowSummaryCards: async (db, show) => {
+    await settingsDb.updateShowSummaryCards(db, show);
+    set((state) => ({ settings: { ...state.settings, showSummaryCards: show } }));
   },
 }));

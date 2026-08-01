@@ -22,6 +22,7 @@ type ListsState = {
     patch: Partial<Pick<NudgeList, 'name' | 'icon' | 'color' | 'sortOrder'>>
   ) => Promise<void>;
   remove: (db: SQLiteDatabase, id: string) => Promise<void>;
+  reorder: (db: SQLiteDatabase, orderedIds: string[]) => Promise<void>;
   appendImported: (lists: NudgeList[]) => void;
   reset: () => void;
 };
@@ -50,6 +51,16 @@ export const useListsStore = create<ListsState>((set, get) => ({
     await listsDb.deleteList(db, id);
     useNudgesStore.setState((s) => ({ nudges: s.nudges.filter((n) => n.listId !== id) }));
     set({ lists: get().lists.filter((l) => l.id !== id) });
+  },
+  reorder: async (db, orderedIds) => {
+    await listsDb.reorderLists(db, orderedIds);
+    const listById = new Map(get().lists.map((l) => [l.id, l]));
+    set({
+      lists: orderedIds.map((id, index) => {
+        const list = listById.get(id);
+        return list ? { ...list, sortOrder: index } : list;
+      }).filter((l): l is NudgeList => l !== undefined),
+    });
   },
   appendImported: (lists) => set({ lists: [...get().lists, ...lists] }),
 }));
