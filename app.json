@@ -37,6 +37,7 @@
       "expo-sqlite",
       "@react-native-community/datetimepicker",
       "expo-font",
+      "expo-task-manager",
       [
         "expo-notifications",
         {

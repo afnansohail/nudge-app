@@ -33,6 +33,11 @@ export async function getAllLists(db: SQLiteDatabase): Promise<NudgeList[]> {
   return rows.map(mapRow);
 }
 
+export async function getListById(db: SQLiteDatabase, id: string): Promise<NudgeList | null> {
+  const row = await db.getFirstAsync<ListRow>('SELECT * FROM lists WHERE id = ?', [id]);
+  return row ? mapRow(row) : null;
+}
+
 export async function createList(
   db: SQLiteDatabase,
   input: { name: string; icon: ListIconKey; color: ListColorKey }

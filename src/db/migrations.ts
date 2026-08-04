@@ -1,8 +1,8 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
 import * as Crypto from 'expo-crypto';
+import type { SQLiteDatabase } from 'expo-sqlite';
 
 export const DATABASE_NAME = 'nudge.db';
-const CURRENT_VERSION = 6;
+const CURRENT_VERSION = 10;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -135,6 +135,53 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
     `);
 
     version = 6;
+  }
+
+  if (version === 6) {
+    await db.execAsync(`
+      CREATE TABLE notification_action_log (
+        dedupe_key TEXT PRIMARY KEY NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+    `);
+
+    version = 7;
+  }
+
+  if (version === 7) {
+    await db.execAsync(`
+      CREATE TABLE notification_debug_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at INTEGER NOT NULL,
+        source TEXT NOT NULL,
+        action_identifier TEXT NOT NULL,
+        nudge_id TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        detail TEXT
+      );
+    `);
+
+    version = 8;
+  }
+
+  if (version === 8) {
+    await db.execAsync(`
+      DROP TABLE IF EXISTS notification_action_log;
+      CREATE TABLE notification_action_log (
+        dedupe_key TEXT PRIMARY KEY NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+    `);
+
+    version = 9;
+  }
+
+  if (version === 9) {
+    await db.execAsync(`
+      DROP TABLE IF EXISTS notification_debug_log;
+    `);
+
+    version = 10;
   }
 
   await db.execAsync(`PRAGMA user_version = ${version}`);

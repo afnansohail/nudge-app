@@ -1,28 +1,33 @@
-import { useCallback, useEffect } from 'react';
-import { AppState } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { SQLiteProvider } from 'expo-sqlite';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
+import '@/global.css';
+import { DMMono_400Regular, DMMono_500Medium } from '@expo-google-fonts/dm-mono';
 import {
-  useFonts,
   Outfit_400Regular,
   Outfit_500Medium,
   Outfit_600SemiBold,
   Outfit_700Bold,
+  useFonts,
 } from '@expo-google-fonts/outfit';
-import { DMMono_400Regular, DMMono_500Medium } from '@expo-google-fonts/dm-mono';
+import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { SQLiteProvider } from 'expo-sqlite';
 import { useColorScheme } from 'nativewind';
-import '@/global.css';
+import { useCallback, useEffect } from 'react';
+import { AppState } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/db/migrations';
 import { useDb } from '@/db/use-db';
+import { applyNudgeNotificationResponse } from '@/lib/notification-action-handler';
+import {
+  attachNotificationResponseHandler,
+  ensureNotificationSetup,
+  getInitialNotificationResponse,
+} from '@/lib/notifications';
+import { useAppResetStore } from '@/store/app-reset-store';
 import { useListsStore } from '@/store/lists-store';
 import { useNudgesStore } from '@/store/nudges-store';
 import { useSettingsStore } from '@/store/settings-store';
-import { useAppResetStore } from '@/store/app-reset-store';
-import { ensureNotificationSetup, attachNotificationResponseHandler } from '@/lib/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -60,8 +65,6 @@ function AppShell() {
   const loadNudges = useNudgesStore((s) => s.load);
   const loadSettings = useSettingsStore((s) => s.load);
   const themePreference = useSettingsStore((s) => s.settings.themePreference);
-  const completeNudge = useNudgesStore((s) => s.complete);
-  const snoozeNudge = useNudgesStore((s) => s.snooze);
   const catchUpLapsed = useNudgesStore((s) => s.catchUpLapsed);
 
   useEffect(() => {
@@ -76,23 +79,24 @@ function AppShell() {
   }, [themePreference, setColorScheme]);
 
   useEffect(() => {
-    return attachNotificationResponseHandler({
-      onSnooze: async (nudgeId, until) => {
-        const nudge = useNudgesStore.getState().nudges.find((n) => n.id === nudgeId);
-        if (!nudge) return;
-        const list = useListsStore.getState().lists.find((l) => l.id === nudge.listId);
-        if (!list) return;
-        await snoozeNudge(db, list, nudgeId, until);
-      },
-      onComplete: async (nudgeId) => {
-        const nudge = useNudgesStore.getState().nudges.find((n) => n.id === nudgeId);
-        if (!nudge) return;
-        const list = useListsStore.getState().lists.find((l) => l.id === nudge.listId);
-        if (!list) return;
-        await completeNudge(db, list, nudgeId);
-      },
+    let cancelled = false;
+
+    const handleResponse = async (response: Parameters<typeof applyNudgeNotificationResponse>[1]) => {
+      await applyNudgeNotificationResponse(db, response);
+      if (cancelled) return;
+      await Promise.all([loadLists(db), loadNudges(db)]);
+    };
+
+    getInitialNotificationResponse().then((response) => {
+      if (response && !cancelled) handleResponse(response);
     });
-  }, [db, snoozeNudge, completeNudge]);
+
+    const unsubscribe = attachNotificationResponseHandler(handleResponse);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [db, loadLists, loadNudges]);
 
   useEffect(() => {
     if (!listsLoaded || !nudgesLoaded) return;

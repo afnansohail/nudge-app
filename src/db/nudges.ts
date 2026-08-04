@@ -49,6 +49,11 @@ export async function getAllNudges(db: SQLiteDatabase): Promise<Nudge[]> {
   return rows.map(mapRow);
 }
 
+export async function getNudgeById(db: SQLiteDatabase, id: string): Promise<Nudge | null> {
+  const row = await db.getFirstAsync<NudgeRow>('SELECT * FROM nudges WHERE id = ?', [id]);
+  return row ? mapRow(row) : null;
+}
+
 export type CreateNudgeInput = {
   listId: string;
   title: string;

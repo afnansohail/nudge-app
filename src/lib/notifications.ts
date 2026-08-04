@@ -8,6 +8,7 @@ const NUDGE_CATEGORY = 'nudge-actions';
 export const ACTION_SNOOZE_1H = 'snooze-1h';
 export const ACTION_SNOOZE_TOMORROW = 'snooze-tomorrow';
 export const ACTION_MARK_DONE = 'mark-done';
+export const BACKGROUND_NOTIFICATION_TASK = 'nudge-notification-response-task';
 
 LogBox.ignoreLogs([
   'Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go',
@@ -41,14 +42,34 @@ export async function ensureNotificationSetup(): Promise<void> {
     }
 
     await Notifications.setNotificationCategoryAsync(NUDGE_CATEGORY, [
-      { identifier: ACTION_MARK_DONE, buttonTitle: 'Done' },
-      { identifier: ACTION_SNOOZE_1H, buttonTitle: 'Snooze 1hr' },
-      { identifier: ACTION_SNOOZE_TOMORROW, buttonTitle: 'Snooze 1d' },
+      {
+        identifier: ACTION_MARK_DONE,
+        buttonTitle: 'Done',
+        options: { opensAppToForeground: false },
+      },
+      {
+        identifier: ACTION_SNOOZE_1H,
+        buttonTitle: 'Snooze 1hr',
+        options: { opensAppToForeground: false },
+      },
+      {
+        identifier: ACTION_SNOOZE_TOMORROW,
+        buttonTitle: 'Snooze 1d',
+        options: { opensAppToForeground: false },
+      },
     ]);
 
     const { status } = await Notifications.getPermissionsAsync();
     if (status !== 'granted') {
       await Notifications.requestPermissionsAsync();
+    }
+
+    if (Platform.OS === 'android') {
+      try {
+        await Notifications.registerTaskAsync(BACKGROUND_NOTIFICATION_TASK);
+      } catch (error) {
+        console.warn('[notifications] background task registration failed:', error);
+      }
     }
   } catch (error) {
     console.warn('[notifications] setup failed, continuing without notifications:', error);
@@ -132,28 +153,25 @@ export async function scheduleNudgeNotification(
   }
 }
 
-export function attachNotificationResponseHandler(handlers: {
-  onSnooze: (nudgeId: string, until: number) => Promise<void>;
-  onComplete: (nudgeId: string) => Promise<void>;
-}): () => void {
+export async function getInitialNotificationResponse(): Promise<NotificationsType.NotificationResponse | null> {
+  if (!Notifications) return null;
+  try {
+    const response = await Notifications.getLastNotificationResponseAsync();
+    if (response) await Notifications.clearLastNotificationResponseAsync();
+    return response;
+  } catch (error) {
+    console.warn('[notifications] could not read last response:', error);
+    return null;
+  }
+}
+
+export function attachNotificationResponseHandler(
+  onResponse: (response: NotificationsType.NotificationResponse) => Promise<void>
+): () => void {
   if (!Notifications) return () => {};
 
   try {
-    const subscription = Notifications.addNotificationResponseReceivedListener(
-      async (response) => {
-        const nudgeId = response.notification.request.identifier;
-        const actionId = response.actionIdentifier;
-
-        if (actionId === ACTION_SNOOZE_1H) {
-          await handlers.onSnooze(nudgeId, Date.now() + 60 * 60 * 1000);
-        } else if (actionId === ACTION_SNOOZE_TOMORROW) {
-          await handlers.onSnooze(nudgeId, Date.now() + 24 * 60 * 60 * 1000);
-        } else if (actionId === ACTION_MARK_DONE) {
-          await handlers.onComplete(nudgeId);
-        }
-      }
-    );
-
+    const subscription = Notifications.addNotificationResponseReceivedListener(onResponse);
     return () => subscription.remove();
   } catch (error) {
     console.warn('[notifications] listener attach failed:', error);
