@@ -27,6 +27,12 @@ type NudgeRowProps = {
   onPress: () => void;
   onDragStart?: () => void;
   isDragging?: boolean;
+  /**
+   * Enter/exit/layout animations. Turn off inside a recycling list
+   * (FlashList): recycled rows must not replay enter animations, and layout
+   * animations on many rows are expensive.
+   */
+  animateLayout?: boolean;
 };
 
 const ACTION_WIDTH = 96;
@@ -80,6 +86,7 @@ export function NudgeRow({
   onPress,
   onDragStart,
   isDragging,
+  animateLayout = true,
 }: NudgeRowProps) {
   const status = getNudgeStatus(nudge);
   const isDone = status === 'completed';
@@ -105,9 +112,9 @@ export function NudgeRow({
 
   return (
     <Animated.View
-      entering={FadeIn.duration(200)}
-      exiting={FadeOut.duration(220)}
-      layout={LinearTransition.duration(220)}
+      entering={animateLayout ? FadeIn.duration(200) : undefined}
+      exiting={animateLayout ? FadeOut.duration(220) : undefined}
+      layout={animateLayout ? LinearTransition.duration(220) : undefined}
     >
     <Animated.View style={isDragging ? [FAB_SHADOW, { opacity: 0.97 }] : { opacity: 1 }}>
     <View

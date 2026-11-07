@@ -123,37 +123,112 @@ export async function scheduleNudgeNotification(
   if (!Notifications) return null;
   await cancelNudgeNotification(nudge);
 
-  if (nudge.completedAt !== null) return null;
-  const fireAt = nudge.snoozedUntil ?? nudge.nextOccurrenceAt ?? nudge.dueAt;
+  const fireAt = getNudgeFireAt(nudge);
   if (fireAt === null) return null;
 
-  const fireDate = new Date(Math.max(fireAt, Date.now() + 1000));
-
   try {
-    return await Notifications.scheduleNotificationAsync({
-      identifier: nudge.id,
-      content: {
-        title: nudge.title,
-        subtitle: list.name,
-        body: nudge.note ? truncateNotePreview(nudge.note) : undefined,
-        categoryIdentifier: NUDGE_CATEGORY,
-        data: { nudgeId: nudge.id },
-        sticky: true,
-        autoDismiss: false,
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: fireDate,
-        channelId: CHANNEL_ID,
-      },
-    });
+    return await Notifications.scheduleNotificationAsync(
+      buildNudgeNotificationRequest(Notifications, nudge, list, Math.max(fireAt, Date.now() + 1000))
+    );
   } catch (error) {
     console.warn('[notifications] schedule failed:', error);
     return null;
   }
 }
 
-export async function getInitialNotificationResponse(): Promise<NotificationsType.NotificationResponse | null> {
+function getNudgeFireAt(nudge: Nudge): number | null {
+  if (nudge.completedAt !== null) return null;
+  return nudge.snoozedUntil ?? nudge.nextOccurrenceAt ?? nudge.dueAt;
+}
+
+function buildNudgeNotificationRequest(
+  notifications: typeof NotificationsType,
+  nudge: Nudge,
+  list: Pick<NudgeList, 'name'>,
+  fireAt: number
+): NotificationsType.NotificationRequestInput {
+  return {
+    identifier: nudge.id,
+    content: {
+      title: nudge.title,
+      subtitle: list.name,
+      body: nudge.note ? truncateNotePreview(nudge.note) : undefined,
+      categoryIdentifier: NUDGE_CATEGORY,
+      data: { nudgeId: nudge.id },
+      sticky: true,
+      autoDismiss: false,
+    },
+    trigger: {
+      type: notifications.SchedulableTriggerInputTypes.DATE,
+      date: new Date(fireAt),
+      channelId: CHANNEL_ID,
+    },
+  };
+}
+
+// Schedules every future nudge notification again. Runs once per app launch.
+//
+// Why: expo-notifications sets its alarms again only when it receives the
+// BOOT_COMPLETED or MY_PACKAGE_REPLACED broadcast. Some Android skins (seen on
+// Realme UI) do not send these to apps without "Auto launch", so after a
+// reboot or an app update the alarms are lost or stay in their old form
+// (for example inexact, from before the exact-alarm permission). Scheduling
+// with the same identifier replaces the old alarm.
+//
+// This only touches nudges that are due in the future. It never dismisses a
+// notification that is on screen, and it does not show overdue nudges again.
+export async function resyncFutureNudgeNotifications(
+  nudges: Nudge[],
+  lists: Pick<NudgeList, 'id' | 'name'>[]
+): Promise<void> {
+  if (!Notifications) return;
+  const now = Date.now();
+  const listById = new Map(lists.map((list) => [list.id, list]));
+
+  for (const nudge of nudges) {
+    const fireAt = getNudgeFireAt(nudge);
+    const list = listById.get(nudge.listId);
+    if (fireAt === null || fireAt <= now || !list) continue;
+    try {
+      await Notifications.scheduleNotificationAsync(
+        buildNudgeNotificationRequest(Notifications, nudge, list, fireAt)
+      );
+    } catch (error) {
+      console.warn('[notifications] resync failed for', nudge.id, error);
+    }
+  }
+}
+
+// Shows a nudge notification again at once. Used when a Done/Snooze action
+// failed: the native receiver (NudgeNotificationsService) already dismissed
+// the notification, so without this the user would lose it with no sign that
+// the action did not work. The content comes from the tap response, not from
+// the database, so this works even when the database is the thing that failed.
+export async function presentNudgeNotificationNow(
+  identifier: string,
+  content: { title?: string | null; subtitle?: string | null; body?: string | null }
+): Promise<void> {
+  if (!Notifications) return;
+  try {
+    await Notifications.scheduleNotificationAsync({
+      identifier,
+      content: {
+        title: content.title ?? undefined,
+        subtitle: content.subtitle ?? undefined,
+        body: content.body ?? undefined,
+        categoryIdentifier: NUDGE_CATEGORY,
+        data: { nudgeId: identifier },
+        sticky: true,
+        autoDismiss: false,
+      },
+      trigger: { channelId: CHANNEL_ID },
+    });
+  } catch (error) {
+    console.warn('[notifications] could not restore notification:', error);
+  }
+}
+
+export async function getInitialNotificationResponse():Promise<NotificationsType.NotificationResponse | null> {
   if (!Notifications) return null;
   try {
     const response = await Notifications.getLastNotificationResponseAsync();

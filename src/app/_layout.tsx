@@ -11,7 +11,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { SQLiteProvider } from 'expo-sqlite';
 import { useColorScheme } from 'nativewind';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -23,6 +23,7 @@ import {
   attachNotificationResponseHandler,
   ensureNotificationSetup,
   getInitialNotificationResponse,
+  resyncFutureNudgeNotifications,
 } from '@/lib/notifications';
 import { useAppResetStore } from '@/store/app-reset-store';
 import { useListsStore } from '@/store/lists-store';
@@ -66,6 +67,7 @@ function AppShell() {
   const loadSettings = useSettingsStore((s) => s.load);
   const themePreference = useSettingsStore((s) => s.settings.themePreference);
   const catchUpLapsed = useNudgesStore((s) => s.catchUpLapsed);
+  const didResyncNotifications = useRef(false);
 
   useEffect(() => {
     loadLists(db);
@@ -102,7 +104,16 @@ function AppShell() {
     if (!listsLoaded || !nudgesLoaded) return;
 
     const runCatchUp = () => catchUpLapsed(db, useListsStore.getState().lists);
-    runCatchUp();
+    runCatchUp().finally(() => {
+      // Once per launch, after catch-up has moved lapsed recurring nudges
+      // forward. See resyncFutureNudgeNotifications for why.
+      if (didResyncNotifications.current) return;
+      didResyncNotifications.current = true;
+      resyncFutureNudgeNotifications(
+        useNudgesStore.getState().nudges,
+        useListsStore.getState().lists
+      );
+    });
 
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') runCatchUp();

@@ -3,6 +3,7 @@ import * as Crypto from 'expo-crypto';
 import type { Nudge, RecurrenceParams, RecurrenceType } from '@/lib/types';
 import { computeCompletion, computeUncompletion } from '@/lib/completion';
 import { incrementCompletedCount, decrementCompletedCount } from '@/db/settings';
+import { runInTransaction } from '@/db/serialized-db';
 
 type NudgeRow = {
   id: string;
@@ -168,7 +169,18 @@ export async function deleteNudgesForList(db: SQLiteDatabase, listId: string): P
 
 export type CompleteResult = { nudge: Nudge; copy: Nudge | null };
 
+// All writes (nudge update, recurring copy, completed count) run in one
+// transaction. If any write fails, none of them stay, so a retry (for example
+// a second Done tap on a restored notification) does not count twice or leave
+// a half-completed recurring nudge.
 export async function completeNudge(db: SQLiteDatabase, id: string): Promise<CompleteResult> {
+  return runInTransaction(db, (txDb) => completeNudgeInTransaction(txDb, id));
+}
+
+async function completeNudgeInTransaction(
+  db: SQLiteDatabase,
+  id: string
+): Promise<CompleteResult> {
   const row = await db.getFirstAsync<NudgeRow>('SELECT * FROM nudges WHERE id = ?', [id]);
   if (!row) throw new Error(`Nudge ${id} not found`);
   const nudge = mapRow(row);
@@ -231,7 +243,16 @@ export type UncompleteResult =
   | { kind: 'reverted'; nudge: Nudge }
   | { kind: 'copyDeleted'; deletedId: string; sourceNudge: Nudge | null };
 
+// Same as completeNudge: the count decrement, the nudge revert, and the
+// recurring copy delete/source update all commit together or not at all.
 export async function uncompleteNudge(db: SQLiteDatabase, id: string): Promise<UncompleteResult> {
+  return runInTransaction(db, (txDb) => uncompleteNudgeInTransaction(txDb, id));
+}
+
+async function uncompleteNudgeInTransaction(
+  db: SQLiteDatabase,
+  id: string
+): Promise<UncompleteResult> {
   const row = await db.getFirstAsync<NudgeRow>('SELECT * FROM nudges WHERE id = ?', [id]);
   if (!row) throw new Error(`Nudge ${id} not found`);
   const target = mapRow(row);

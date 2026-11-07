@@ -1,11 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { claimNotificationAction } from '@/db/notification-action-log';
+import { claimNotificationAction, releaseNotificationAction } from '@/db/notification-action-log';
 
 function makeFakeDb() {
   const claimed = new Set<string>();
 
   const runAsync = async (sql: string, params: unknown[] = []) => {
+    if (sql.includes('WHERE dedupe_key = ?')) {
+      const [dedupeKey] = params as [string];
+      return { changes: claimed.delete(dedupeKey) ? 1 : 0 };
+    }
     if (sql.startsWith('DELETE')) return { changes: 0 };
     const [dedupeKey] = params as [string, number];
     if (claimed.has(dedupeKey)) return { changes: 0 };
@@ -32,5 +36,12 @@ describe('claimNotificationAction', () => {
     const db = makeFakeDb();
     await claimNotificationAction(db, 'nudge-1:mark-done:100');
     await expect(claimNotificationAction(db, 'nudge-1:snooze-1h:100')).resolves.toBe(true);
+  });
+
+  it('lets a released dedupe key be claimed again', async () => {
+    const db = makeFakeDb();
+    await claimNotificationAction(db, 'nudge-1:mark-done:100');
+    await releaseNotificationAction(db, 'nudge-1:mark-done:100');
+    await expect(claimNotificationAction(db, 'nudge-1:mark-done:100')).resolves.toBe(true);
   });
 });

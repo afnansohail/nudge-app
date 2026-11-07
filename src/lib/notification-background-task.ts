@@ -1,6 +1,10 @@
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/db/migrations';
 import { getSerializedDb } from '@/db/serialized-db';
-import { applyNudgeNotificationResponse } from '@/lib/notification-action-handler';
+import {
+  applyNudgeNotificationResponse,
+  restoreNudgeNotificationAfterFailure,
+  type NudgeNotificationResponse,
+} from '@/lib/notification-action-handler';
 import { BACKGROUND_NOTIFICATION_TASK } from '@/lib/notifications';
 import { openDatabaseAsync } from 'expo-sqlite';
 import * as TaskManager from 'expo-task-manager';
@@ -17,7 +21,7 @@ TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, async ({ data, error }) => 
     return;
   }
 
-  const response = data as { actionIdentifier: string; notification: { date: number; request: { identifier: string } } };
+  const response = data as NudgeNotificationResponse;
   console.log(LOG_TAG, 'handling', response.actionIdentifier, 'for', response.notification.request.identifier);
 
   try {
@@ -27,6 +31,9 @@ TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, async ({ data, error }) => 
     await applyNudgeNotificationResponse(db, response);
     console.log(LOG_TAG, 'done');
   } catch (taskError) {
+    // Usually the database did not open or migrate. The native receiver has
+    // already dismissed the notification, so show it again.
     console.warn(LOG_TAG, 'failed to apply action', taskError);
+    await restoreNudgeNotificationAfterFailure(response);
   }
 });

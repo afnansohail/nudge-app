@@ -4,6 +4,7 @@ import type { Nudge, NudgeList } from '@/lib/types';
 import * as nudgesDb from '@/db/nudges';
 import { cancelNudgeNotification, scheduleNudgeNotification } from '@/lib/notifications';
 import { catchUpOccurrence } from '@/lib/recurrence';
+import { computeUncompletion } from '@/lib/completion';
 
 type NudgesState = {
   nudges: Nudge[];
@@ -53,11 +54,20 @@ export const useNudgesStore = create<NudgesState>((set, get) => ({
     const nudge = updated.find((n) => n.id === id);
     if (nudge) await scheduleNudgeNotification(nudge, list);
   },
+  // Optimistic: the row leaves the UI at once. Before, it waited for two
+  // native notification calls and the delete. If the delete fails, reload
+  // from the database so the row comes back.
   remove: async (db, id) => {
     const nudge = get().nudges.find((n) => n.id === id);
+    set({ nudges: get().nudges.filter((n) => n.id !== id && n.sourceNudgeId !== id) });
+    try {
+      await nudgesDb.deleteNudge(db, id);
+    } catch (error) {
+      console.warn('[nudges-store] delete failed, restoring', error);
+      await get().load(db);
+      return;
+    }
     if (nudge) await cancelNudgeNotification(nudge);
-    await nudgesDb.deleteNudge(db, id);
-    set({ nudges: get().nudges.filter((n) => n.id !== id) });
   },
   complete: async (db, list, id) => {
     const { nudge, copy } = await nudgesDb.completeNudge(db, id);
@@ -66,7 +76,37 @@ export const useNudgesStore = create<NudgesState>((set, get) => ({
     await scheduleNudgeNotification(nudge, list);
   },
   uncomplete: async (db, list, id) => {
-    const result = await nudgesDb.uncompleteNudge(db, id);
+    // Optimistic: show the result at once. computeUncompletion is the same
+    // pure function uncompleteNudge uses on the database rows, so the screen
+    // shows what the database will store. On failure, reload from the
+    // database.
+    const before = get().nudges;
+    const target = before.find((n) => n.id === id);
+    if (target && target.completedAt !== null) {
+      const source = target.sourceNudgeId
+        ? (before.find((n) => n.id === target.sourceNudgeId) ?? null)
+        : null;
+      const predicted = computeUncompletion(target, source);
+      if (predicted.kind === 'revert') {
+        set({ nudges: before.map((n) => (n.id === id ? { ...n, ...predicted.updatedNudge } : n)) });
+      } else {
+        const { sourceUpdate } = predicted;
+        set({
+          nudges: before
+            .filter((n) => n.id !== predicted.deletedId)
+            .map((n) => (sourceUpdate && n.id === sourceUpdate.id ? { ...n, ...sourceUpdate } : n)),
+        });
+      }
+    }
+
+    let result: nudgesDb.UncompleteResult;
+    try {
+      result = await nudgesDb.uncompleteNudge(db, id);
+    } catch (error) {
+      console.warn('[nudges-store] uncomplete failed, restoring', error);
+      await get().load(db);
+      return;
+    }
     if (result.kind === 'reverted') {
       set({ nudges: get().nudges.map((n) => (n.id === id ? result.nudge : n)) });
       await scheduleNudgeNotification(result.nudge, list);

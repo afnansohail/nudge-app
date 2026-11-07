@@ -16,3 +16,12 @@ export async function claimNotificationAction(
   );
   return result.changes > 0;
 }
+
+// Undoes a claim when the action failed after it was claimed, so a retry (a
+// second tap on the restored notification) is not blocked by the dedupe key.
+export async function releaseNotificationAction(
+  db: SQLiteDatabase,
+  dedupeKey: string
+): Promise<void> {
+  await db.runAsync('DELETE FROM notification_action_log WHERE dedupe_key = ?', [dedupeKey]);
+}

@@ -22,9 +22,9 @@ import { SUBTLE_SHADOW } from '@/theme/tokens';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { deleteDatabaseAsync } from 'expo-sqlite';
-import { BatteryCharging, Bell, Download, Trash2, Upload, X } from 'lucide-react-native';
+import { Bell, Download, Trash2, Upload, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Alert, Linking, Platform, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const THEME_OPTIONS: { key: ThemePreference; label: string }[] = [
@@ -131,14 +131,6 @@ export default function SettingsScreen() {
         },
       ]
     );
-  };
-
-  const openBatteryOptimizationSettings = async () => {
-    try {
-      await Linking.sendIntent('android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS');
-    } catch {
-      Linking.openSettings();
-    }
   };
 
   const resetAllData = () => {
@@ -304,24 +296,6 @@ export default function SettingsScreen() {
                 style={{ color: 'rgba(138, 90, 8, 0.8)' }}
               >
                 Timed nudges need this to reach you. Tap to enable.
-              </Text>
-            </View>
-          </Pressable>
-        )}
-
-        {Platform.OS === 'android' && (
-          <Pressable
-            onPress={openBatteryOptimizationSettings}
-            className="flex-row items-center gap-3 rounded-2xl border-[1.5px] border-[#F0EAE1] bg-white px-4 py-3.5 dark:border-border-dark dark:bg-night-surface"
-          >
-            <BatteryCharging size={18} color="#6B655C" />
-            <View className="flex-1">
-              <Text className="font-display-medium text-sm text-ink dark:text-mist">
-                Speed up background actions
-              </Text>
-              <Text className="mt-0.5 font-display text-xs text-muted dark:text-muted-dark">
-                If Done/Snooze feel slow after Nudge hasn&rsquo;t been opened in a while, exclude it
-                from battery optimization here.
               </Text>
             </View>
           </Pressable>

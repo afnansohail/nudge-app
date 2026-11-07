@@ -36,8 +36,13 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-example
+# example
+/example
 
 # generated native folders
 /ios
 /android
+
+# misc
+*.apk
+*Zone.Identifier

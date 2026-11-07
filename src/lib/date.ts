@@ -12,18 +12,34 @@ export function isSameCalendarDay(a: number, b: number): boolean {
   );
 }
 
+// toLocaleDateString/toLocaleTimeString build a new Intl formatter on every
+// call, which is slow on Hermes. A long list formats hundreds of dates per
+// render, so we make each formatter once and reuse it.
+let dateFormatter: Intl.DateTimeFormat | null = null;
+let dateWithYearFormatter: Intl.DateTimeFormat | null = null;
+let timeFormatter: Intl.DateTimeFormat | null = null;
+
 export function formatNudgeDate(timestamp: number, now: number = Date.now()): string {
-  const date = new Date(timestamp);
-  return date.toLocaleDateString(undefined, {
+  if (includesDifferentYear(timestamp, now)) {
+    dateWithYearFormatter ??= new Intl.DateTimeFormat(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    return dateWithYearFormatter.format(timestamp);
+  }
+  dateFormatter ??= new Intl.DateTimeFormat(undefined, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-    ...(includesDifferentYear(timestamp, now) ? { year: 'numeric' as const } : {}),
   });
+  return dateFormatter.format(timestamp);
 }
 
 export function formatNudgeTime(timestamp: number): string {
-  return new Date(timestamp).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  timeFormatter ??= new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+  return timeFormatter.format(timestamp);
 }
 
 export function formatNudgeDateTime(timestamp: number, now: number = Date.now()): string {
