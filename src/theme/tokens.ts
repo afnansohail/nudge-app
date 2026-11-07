@@ -96,6 +96,14 @@ export const INK_MIST_ICON_COLOR: Record<ColorScheme, string> = {
   dark: '#17140F', // matches text-night
 };
 
+// Grey for secondary icons (header back/close/settings buttons, pickers). The
+// light value was too dim on dark surfaces (about 2.9:1), so dark mode gets
+// its own value.
+export const MUTED_ICON_COLOR: Record<ColorScheme, string> = {
+  light: '#6B655C',
+  dark: '#B5AEA3',
+};
+
 // Shadows as inline styles, not `shadow-sm`/`shadow-lg` utility classes: NativeWind's
 // runtime CSS-interop parsing for shadow/opacity utilities races with Expo Router's
 // navigation context on a color-scheme switch and crashes the app (nativewind#1557, #1711).

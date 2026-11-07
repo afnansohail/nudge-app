@@ -5,7 +5,7 @@ import { X, Trash2 } from 'lucide-react-native';
 import { useDb } from '@/db/use-db';
 import { ListForm } from '@/components/lists/ListForm';
 import { useListsStore } from '@/store/lists-store';
-import { PressableScale } from '@/components/ui/PressableScale';
+import { IconButton } from '@/components/ui/IconButton';
 import { goBack } from '@/lib/navigation';
 
 export default function EditListScreen() {
@@ -24,17 +24,15 @@ export default function EditListScreen() {
         className="flex-row items-center justify-between px-4"
         style={{ paddingTop: insets.top + 16 }}
       >
-        <PressableScale
-          onPress={goBack}
-          className="h-9 w-9 items-center justify-center rounded-full bg-[#F1ECE3] dark:bg-night-surface"
-        >
-          <X size={16} color="#6B655C" />
-        </PressableScale>
+        <IconButton Icon={X} label="Close" onPress={goBack} />
         <Text className="font-display-semibold text-base text-ink dark:text-mist">Edit list</Text>
         {list.isDefault ? (
           <View className="w-9" />
         ) : (
-          <PressableScale
+          <IconButton
+            Icon={Trash2}
+            label="Delete list"
+            color="#C24A2C"
             onPress={() => {
               Alert.alert(
                 `Delete "${list.name}"?`,
@@ -52,10 +50,7 @@ export default function EditListScreen() {
                 ]
               );
             }}
-            className="h-9 w-9 items-center justify-center rounded-full bg-[#F1ECE3] dark:bg-night-surface"
-          >
-            <Trash2 size={16} color="#C24A2C" />
-          </PressableScale>
+          />
         )}
       </View>
 

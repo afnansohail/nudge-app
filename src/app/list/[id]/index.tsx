@@ -1,11 +1,13 @@
 import { NudgeRow } from '@/components/reminders/NudgeRow';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { IconButton } from '@/components/ui/IconButton';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { useDb } from '@/db/use-db';
 import { formatNudgeDateTime } from '@/lib/date';
 import { goBack } from '@/lib/navigation';
 import { groupNudgesByStatus } from '@/lib/status';
+import type { Nudge } from '@/lib/types';
 import { useListsStore } from '@/store/lists-store';
 import { useNudgesStore } from '@/store/nudges-store';
 import { useSettingsStore } from '@/store/settings-store';
@@ -13,13 +15,20 @@ import { FAB_SHADOW, INK_MIST_ICON_COLOR, LIST_COLORS } from '@/theme/tokens';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Plus, Settings as SettingsIcon, Sparkles } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
-import { useMemo } from 'react';
-import { Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import {
   NestableDraggableFlatList,
   NestableScrollContainer,
 } from 'react-native-draggable-flatlist';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// This screen is one ScrollView (it must be, for drag-to-reorder), so it
+// mounts every row it shows. A list can have hundreds of completed nudges,
+// and each row has a swipe gesture and animations. So completed rows are
+// added in batches as the user scrolls near the bottom.
+const COMPLETED_BATCH = 30;
+const LOAD_MORE_DISTANCE = 800;
 
 export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -36,6 +45,31 @@ export default function ListDetailScreen() {
 
   const nudges = useMemo(() => allNudges.filter((n) => n.listId === id), [allNudges, id]);
   const groups = useMemo(() => groupNudgesByStatus(nudges), [nudges]);
+  const [completedLimit, setCompletedLimit] = useState(COMPLETED_BATCH);
+  const completedTotal = groups.completed.length;
+
+  // Stable callbacks: NudgeRow is memoized, so rows that did not change do
+  // not re-render when one nudge changes.
+  const handleComplete = useCallback(
+    (nudge: Nudge) => (list ? complete(db, list, nudge.id) : undefined),
+    [db, list, complete]
+  );
+  const handleUncomplete = useCallback(
+    (nudge: Nudge) => (list ? uncomplete(db, list, nudge.id) : undefined),
+    [db, list, uncomplete]
+  );
+  const handleDelete = useCallback((nudge: Nudge) => remove(db, nudge.id), [db, remove]);
+  const handleOpen = useCallback((nudge: Nudge) => router.push(`/nudge/${nudge.id}/edit`), []);
+
+  const showMoreCompletedIfNearEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const distanceFromEnd = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+      if (distanceFromEnd > LOAD_MORE_DISTANCE) return;
+      setCompletedLimit((limit) => (limit < completedTotal ? limit + COMPLETED_BATCH : limit));
+    },
+    [completedTotal]
+  );
 
   if (!list) return null;
 
@@ -44,50 +78,49 @@ export default function ListDetailScreen() {
 
   return (
     <View className="flex-1 bg-cream dark:bg-night">
-      <NestableScrollContainer contentContainerStyle={{ paddingBottom: 112 }}>
+      <NestableScrollContainer
+        contentContainerStyle={{ paddingBottom: 112 }}
+        // NestableScrollContainer uses onScroll itself; these two are free.
+        onScrollEndDrag={showMoreCompletedIfNearEnd}
+        onMomentumScrollEnd={showMoreCompletedIfNearEnd}
+      >
         <View
           className="flex-row items-center justify-between px-4"
           style={{ paddingTop: insets.top + 16 }}
         >
-          <PressableScale
-            onPress={goBack}
-            className="h-9 w-9 items-center justify-center rounded-full bg-[#F1ECE3] dark:bg-night-surface"
-          >
-            <ChevronLeft size={18} color="#6B655C" />
-          </PressableScale>
-          <PressableScale
+          <IconButton Icon={ChevronLeft} label="Back" size={18} onPress={goBack} />
+          <IconButton
+            Icon={SettingsIcon}
+            label="Edit list"
             onPress={() => router.push(`/list/${list.id}/edit`)}
-            className="h-9 w-9 items-center justify-center rounded-full bg-[#F1ECE3] dark:bg-night-surface"
-          >
-            <SettingsIcon size={16} color="#6B655C" />
-          </PressableScale>
+          />
         </View>
 
         <View className="px-4 pb-5 pt-5">
           <Text
             style={{ color: swatch.dot }}
-            className="font-display-semibold text-[30px] tracking-tight"
+            className="font-display-semibold text-title tracking-tight"
           >
             {list.name}
           </Text>
-          <Text className="mt-1 text-[13.5px] text-muted dark:text-muted-dark">
+          <Text className="mt-1 font-display text-sm text-muted dark:text-muted-dark">
             {activeCount} nudge{activeCount === 1 ? '' : 's'}
-            {groups.missed.length > 0 ? ` · ${groups.missed.length} missed` : ''}
+            {groups.missed.length > 0 ? ` · ${groups.missed.length} overdue` : ''}
           </Text>
         </View>
 
         {groups.missed.length > 0 && (
           <>
-            <SectionLabel label="Missed" />
+            <SectionLabel label="Overdue" />
             <Card className="mx-4 mb-5">
               {groups.missed.map((nudge) => (
                 <NudgeRow
                   key={nudge.id}
                   nudge={nudge}
                   timeLabel={formatTimeLabel(nudge)}
-                  onToggleComplete={() => complete(db, list, nudge.id)}
-                  onDelete={() => remove(db, nudge.id)}
-                  onPress={() => router.push(`/nudge/${nudge.id}/edit`)}
+                  onToggleComplete={handleComplete}
+                  onDelete={handleDelete}
+                  onPress={handleOpen}
                 />
               ))}
             </Card>
@@ -105,9 +138,9 @@ export default function ListDetailScreen() {
                   <NudgeRow
                     nudge={item}
                     timeLabel={formatTimeLabel(item)}
-                    onToggleComplete={() => complete(db, list, item.id)}
-                    onDelete={() => remove(db, item.id)}
-                    onPress={() => router.push(`/nudge/${item.id}/edit`)}
+                    onToggleComplete={handleComplete}
+                    onDelete={handleDelete}
+                    onPress={handleOpen}
                     onDragStart={drag}
                     isDragging={isActive}
                   />
@@ -127,9 +160,9 @@ export default function ListDetailScreen() {
                   key={nudge.id}
                   nudge={nudge}
                   timeLabel={formatTimeLabel(nudge)}
-                  onToggleComplete={() => complete(db, list, nudge.id)}
-                  onDelete={() => remove(db, nudge.id)}
-                  onPress={() => router.push(`/nudge/${nudge.id}/edit`)}
+                  onToggleComplete={handleComplete}
+                  onDelete={handleDelete}
+                  onPress={handleOpen}
                 />
               ))}
             </Card>
@@ -139,22 +172,23 @@ export default function ListDetailScreen() {
         {groups.missed.length === 0 && groups.upcoming.length === 0 && groups.snoozed.length === 0 && (
           <EmptyState
             Icon={Sparkles}
-            title="Nothing here yet"
-            subtitle="Add your first nudge for this list."
+            {...(completedTotal > 0
+              ? { title: 'All done here', subtitle: 'Every nudge in this list is done.' }
+              : { title: 'Nothing here yet', subtitle: 'Add your first nudge for this list.' })}
           />
         )}
 
-        {!hideCompletedSection && groups.completed.length > 0 && (
+        {!hideCompletedSection && completedTotal > 0 && (
           <>
-            <SectionLabel label={`Nailed it · ${groups.completed.length}`} />
+            <SectionLabel label={`Nailed it · ${completedTotal}`} />
             <View className="mx-4 mb-5" style={{ opacity: 0.6 }}>
-              {groups.completed.map((nudge) => (
+              {groups.completed.slice(0, completedLimit).map((nudge) => (
                 <NudgeRow
                   key={nudge.id}
                   nudge={nudge}
-                  onToggleComplete={() => uncomplete(db, list, nudge.id)}
-                  onDelete={() => remove(db, nudge.id)}
-                  onPress={() => router.push(`/nudge/${nudge.id}/edit`)}
+                  onToggleComplete={handleUncomplete}
+                  onDelete={handleDelete}
+                  onPress={handleOpen}
                 />
               ))}
             </View>
@@ -168,11 +202,12 @@ export default function ListDetailScreen() {
       >
         <PressableScale
           onPress={() => router.push({ pathname: '/nudge/new', params: { listId: list.id } })}
+          accessibilityRole="button"
           style={FAB_SHADOW}
           className="flex-row items-center gap-2 rounded-full bg-ink px-5 py-3.5 dark:bg-mist"
         >
           <Plus size={20} color={INK_MIST_ICON_COLOR[colorScheme ?? 'light']} />
-          <Text className="font-display-semibold text-[14.5px] text-cream dark:text-night">
+          <Text className="font-display-semibold text-sm text-cream dark:text-night">
             Nudge me
           </Text>
         </PressableScale>
@@ -183,7 +218,7 @@ export default function ListDetailScreen() {
 
 function SectionLabel({ label }: { label: string }) {
   return (
-    <Text className="px-5 pb-2 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
+    <Text className="px-5 pb-2 font-mono text-caption uppercase tracking-widest text-muted dark:text-muted-dark">
       {label}
     </Text>
   );

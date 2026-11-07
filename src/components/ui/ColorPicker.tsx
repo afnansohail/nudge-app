@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 import { useColorScheme } from 'nativewind';
 import { LIST_COLORS, LIST_COLOR_KEYS, type ListColorKey } from '@/theme/tokens';
@@ -20,13 +21,21 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
           <Pressable
             key={key}
             onPress={() => onChange(key)}
+            accessibilityRole="radio"
+            accessibilityLabel={key}
+            accessibilityState={{ selected }}
             style={{
               backgroundColor: swatch.dot,
               borderWidth: selected ? 3 : 0,
               borderColor: scheme === 'dark' ? '#F5F1EA' : '#1A1815',
             }}
-            className="h-10 w-10 rounded-full"
-          />
+            className="h-10 w-10 items-center justify-center rounded-full"
+          >
+            {/* The ring alone is hard to see on dark swatches. */}
+            {selected ? (
+              <Check size={16} color={scheme === 'dark' ? '#17140F' : '#FFFFFF'} strokeWidth={3} />
+            ) : null}
+          </Pressable>
         );
       })}
     </View>

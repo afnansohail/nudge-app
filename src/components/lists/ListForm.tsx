@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, Text, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { Button } from '@/components/ui/Button';
+import { FieldLabel } from '@/components/ui/FieldLabel';
 import { IconPicker } from '@/components/ui/IconPicker';
 import { ColorPicker } from '@/components/ui/ColorPicker';
 import { LIST_COLORS, type ListColorKey } from '@/theme/tokens';
@@ -40,29 +41,23 @@ export function ListForm({ initialValues, onSubmit, submitLabel }: ListFormProps
         showsVerticalScrollIndicator={false}
       >
         <View>
-          <Text className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
-            List name
-          </Text>
+          <FieldLabel>List name</FieldLabel>
           <TextInput
             value={name}
             onChangeText={setName}
             placeholder="What's this for?"
             placeholderTextColor="#C0B8AB"
-            className="rounded-2xl bg-white px-4 py-3.5 font-display-medium text-base text-ink dark:bg-night-surface dark:text-mist"
+            className="rounded-field bg-white px-4 py-3.5 font-display-medium text-base text-ink dark:bg-night-surface dark:text-mist"
           />
         </View>
 
         <View>
-          <Text className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
-            Color
-          </Text>
+          <FieldLabel>Color</FieldLabel>
           <ColorPicker value={color} onChange={setColor} />
         </View>
 
         <View>
-          <Text className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
-            Icon
-          </Text>
+          <FieldLabel>Icon</FieldLabel>
           <IconPicker value={icon} onChange={setIcon} accentColor={accentColor} />
         </View>
       </ScrollView>

@@ -7,7 +7,7 @@ export const STATUS_LABELS: Record<NudgeStatus, string> = {
   upcoming: 'Upcoming',
   completed: 'Completed',
   snoozed: 'Snoozed',
-  missed: 'Missed',
+  missed: 'Overdue',
 };
 
 export function getNudgeStatus(nudge: Nudge, now: number = Date.now()): NudgeStatus {

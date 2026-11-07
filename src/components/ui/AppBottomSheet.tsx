@@ -20,7 +20,7 @@ export function AppBottomSheet({ visible, onClose, children }: AppBottomSheetPro
         <Animated.View
           entering={SlideInDown.duration(220)}
           exiting={SlideOutDown.duration(180)}
-          className="rounded-t-[28px] bg-cream px-5 pb-8 pt-5 dark:bg-night-surface"
+          className="rounded-t-sheet bg-cream px-5 pb-8 pt-5 dark:bg-night-surface"
         >
           {children}
         </Animated.View>

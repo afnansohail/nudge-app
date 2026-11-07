@@ -1,6 +1,6 @@
 import { AppBottomSheet } from '@/components/ui/AppBottomSheet';
 import { Button } from '@/components/ui/Button';
-import { PressableScale } from '@/components/ui/PressableScale';
+import { IconButton } from '@/components/ui/IconButton';
 import { ThemedDatePicker } from '@/components/ui/ThemedDatePicker';
 import { importBackup, prepareImport } from '@/db/backup';
 import { DATABASE_NAME } from '@/db/migrations';
@@ -18,11 +18,12 @@ import { useAppResetStore } from '@/store/app-reset-store';
 import { useListsStore } from '@/store/lists-store';
 import { useNudgesStore } from '@/store/nudges-store';
 import { useSettingsStore } from '@/store/settings-store';
-import { SUBTLE_SHADOW } from '@/theme/tokens';
+import { LIST_COLORS, MUTED_ICON_COLOR, SUBTLE_SHADOW } from '@/theme/tokens';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { deleteDatabaseAsync } from 'expo-sqlite';
 import { Bell, Download, Trash2, Upload, X } from 'lucide-react-native';
+import { useColorScheme } from 'nativewind';
 import { useEffect, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,6 +47,10 @@ export default function SettingsScreen() {
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [defaultTimePickerOpen, setDefaultTimePickerOpen] = useState(false);
   const insets = useSafeAreaInsets();
+  const { colorScheme } = useColorScheme();
+  const scheme = colorScheme ?? 'light';
+  const warning = LIST_COLORS.amber[scheme];
+  const danger = LIST_COLORS.coral[scheme];
   const resetLists = useListsStore((s) => s.reset);
   const resetNudges = useNudgesStore((s) => s.reset);
   const resetSettings = useSettingsStore((s) => s.reset);
@@ -158,19 +163,14 @@ export default function SettingsScreen() {
         className="flex-row items-center justify-between px-4"
         style={{ paddingTop: insets.top + 16 }}
       >
-        <PressableScale
-          onPress={goBack}
-          className="h-9 w-9 items-center justify-center rounded-full bg-[#F1ECE3] dark:bg-night-surface"
-        >
-          <X size={16} color="#6B655C" />
-        </PressableScale>
+        <IconButton Icon={X} label="Close" onPress={goBack} />
         <Text className="font-display-semibold text-base text-ink dark:text-mist">Settings</Text>
         <View className="w-9" />
       </View>
 
       <ScrollView contentContainerClassName="gap-6 px-5 pt-6 pb-10">
         <View>
-          <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
+          <Text className="mb-2.5 font-mono text-caption uppercase tracking-widest text-muted dark:text-muted-dark">
             Appearance
           </Text>
           <View className="flex-row gap-1 rounded-full bg-[#F1ECE3] p-1 dark:bg-night-surface">
@@ -178,6 +178,8 @@ export default function SettingsScreen() {
               <Pressable
                 key={option.key}
                 onPress={() => setThemePreference(db, option.key)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: themePreference === option.key }}
                 style={themePreference === option.key ? SUBTLE_SHADOW : undefined}
                 className={
                   themePreference === option.key
@@ -201,7 +203,7 @@ export default function SettingsScreen() {
 
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-4">
-            <Text className="font-display-medium text-[15px] text-ink dark:text-mist">
+            <Text className="font-display-medium text-row text-ink dark:text-mist">
               Show completed nudges in lists
             </Text>
             <Text className="mt-0.5 font-display text-xs text-muted dark:text-muted-dark">
@@ -210,6 +212,10 @@ export default function SettingsScreen() {
           </View>
           <Pressable
             onPress={() => setHideCompletedSection(db, !hideCompletedSection)}
+            hitSlop={8}
+            accessibilityRole="switch"
+            accessibilityLabel="Show completed nudges in lists"
+            accessibilityState={{ checked: !hideCompletedSection }}
             style={SUBTLE_SHADOW}
             className={
               hideCompletedSection
@@ -229,7 +235,7 @@ export default function SettingsScreen() {
 
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-4">
-            <Text className="font-display-medium text-[15px] text-ink dark:text-mist">
+            <Text className="font-display-medium text-row text-ink dark:text-mist">
               Show summary cards
             </Text>
             <Text className="mt-0.5 font-display text-xs text-muted dark:text-muted-dark">
@@ -238,6 +244,10 @@ export default function SettingsScreen() {
           </View>
           <Pressable
             onPress={() => setShowSummaryCards(db, !showSummaryCards)}
+            hitSlop={8}
+            accessibilityRole="switch"
+            accessibilityLabel="Show summary cards"
+            accessibilityState={{ checked: showSummaryCards }}
             style={SUBTLE_SHADOW}
             className={
               showSummaryCards
@@ -256,14 +266,14 @@ export default function SettingsScreen() {
         </View>
 
         <View>
-          <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
+          <Text className="mb-2.5 font-mono text-caption uppercase tracking-widest text-muted dark:text-muted-dark">
             Default nudge time
           </Text>
           <Pressable
             onPress={() => setDefaultTimePickerOpen(true)}
-            className="rounded-2xl border-[1.5px] border-[#F0EAE1] bg-white px-4 py-3 dark:border-border-dark dark:bg-night-surface"
+            className="rounded-field border-[1.5px] border-[#F0EAE1] bg-white px-4 py-3 dark:border-border-dark dark:bg-night-surface"
           >
-            <Text className="font-mono text-[13.5px] text-ink dark:text-mist">
+            <Text className="font-mono text-sm text-ink dark:text-mist">
               {formatNudgeTime(defaultTimeAsDate.getTime())}
             </Text>
           </Pressable>
@@ -284,16 +294,17 @@ export default function SettingsScreen() {
         {permissionGranted === false && (
           <Pressable
             onPress={() => Linking.openSettings()}
-            className="flex-row items-center gap-3 rounded-2xl bg-[#FFE6B0] px-4 py-3.5"
+            style={{ backgroundColor: warning.tile }}
+            className="flex-row items-center gap-3 rounded-field px-4 py-3.5"
           >
-            <Bell size={18} color="#8A5A08" />
+            <Bell size={18} color={warning.text} />
             <View className="flex-1">
-              <Text className="font-display-medium text-sm text-[#8A5A08]">
+              <Text style={{ color: warning.text }} className="font-display-medium text-sm">
                 Notifications are off
               </Text>
               <Text
                 className="mt-0.5 font-display text-xs"
-                style={{ color: 'rgba(138, 90, 8, 0.8)' }}
+                style={{ color: warning.text, opacity: 0.8 }}
               >
                 Timed nudges need this to reach you. Tap to enable.
               </Text>
@@ -302,15 +313,15 @@ export default function SettingsScreen() {
         )}
 
         <View>
-          <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
+          <Text className="mb-2.5 font-mono text-caption uppercase tracking-widest text-muted dark:text-muted-dark">
             Backup
           </Text>
           <View className="gap-2">
             <Pressable
               onPress={exportData}
-              className="flex-row items-center gap-3 rounded-2xl border-[1.5px] border-[#F0EAE1] bg-white px-4 py-3.5 dark:border-border-dark dark:bg-night-surface"
+              className="flex-row items-center gap-3 rounded-field border-[1.5px] border-[#F0EAE1] bg-white px-4 py-3.5 dark:border-border-dark dark:bg-night-surface"
             >
-              <Download size={18} color="#6B655C" />
+              <Download size={18} color={MUTED_ICON_COLOR[scheme]} />
               <View className="flex-1">
                 <Text className="font-display-medium text-sm text-ink dark:text-mist">
                   Export data
@@ -322,9 +333,9 @@ export default function SettingsScreen() {
             </Pressable>
             <Pressable
               onPress={importData}
-              className="flex-row items-center gap-3 rounded-2xl border-[1.5px] border-[#F0EAE1] bg-white px-4 py-3.5 dark:border-border-dark dark:bg-night-surface"
+              className="flex-row items-center gap-3 rounded-field border-[1.5px] border-[#F0EAE1] bg-white px-4 py-3.5 dark:border-border-dark dark:bg-night-surface"
             >
-              <Upload size={18} color="#6B655C" />
+              <Upload size={18} color={MUTED_ICON_COLOR[scheme]} />
               <View className="flex-1">
                 <Text className="font-display-medium text-sm text-ink dark:text-mist">
                   Import data
@@ -338,15 +349,18 @@ export default function SettingsScreen() {
         </View>
 
         <View>
-          <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
+          <Text className="mb-2.5 font-mono text-caption uppercase tracking-widest text-muted dark:text-muted-dark">
             Danger zone
           </Text>
           <Pressable
             onPress={resetAllData}
-            className="flex-row items-center gap-3 rounded-2xl bg-[#FFD9D2] px-4 py-3.5"
+            style={{ backgroundColor: danger.tile }}
+            className="flex-row items-center gap-3 rounded-field px-4 py-3.5"
           >
-            <Trash2 size={18} color="#8E2F1A" />
-            <Text className="font-display-medium text-sm text-[#8E2F1A]">Reset all data</Text>
+            <Trash2 size={18} color={danger.text} />
+            <Text style={{ color: danger.text }} className="font-display-medium text-sm">
+              Reset all data
+            </Text>
           </Pressable>
         </View>
       </ScrollView>

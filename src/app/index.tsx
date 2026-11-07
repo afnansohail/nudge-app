@@ -1,5 +1,6 @@
 import { ListRow } from '@/components/lists/ListRow';
 import { Card } from '@/components/ui/Card';
+import { IconButton } from '@/components/ui/IconButton';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { StatTile } from '@/components/ui/StatTile';
 import { useDb } from '@/db/use-db';
@@ -8,7 +9,7 @@ import { groupNudgesByStatus, isDueToday } from '@/lib/status';
 import { useListsStore } from '@/store/lists-store';
 import { useNudgesStore } from '@/store/nudges-store';
 import { useSettingsStore } from '@/store/settings-store';
-import { FAB_SHADOW, INK_MIST_ICON_COLOR } from '@/theme/tokens';
+import { FAB_SHADOW, INK_MIST_ICON_COLOR, LIST_COLORS } from '@/theme/tokens';
 import { router } from 'expo-router';
 import { Plus, Settings as SettingsIcon } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
@@ -30,7 +31,17 @@ export default function HomeScreen() {
   const groups = useMemo(() => groupNudgesByStatus(nudges), [nudges]);
   const todayCount = useMemo(() => nudges.filter((n) => isDueToday(n)).length, [nudges]);
   const { colorScheme } = useColorScheme();
+  const scheme = colorScheme ?? 'light';
   const insets = useSafeAreaInsets();
+
+  // One pass over all nudges, not one filter per list row on every render.
+  const activeCountByList = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const n of nudges) {
+      if (n.completedAt === null) counts.set(n.listId, (counts.get(n.listId) ?? 0) + 1);
+    }
+    return counts;
+  }, [nudges]);
 
   const today = useMemo(() => formatNudgeDate(Date.now()), []);
 
@@ -42,24 +53,23 @@ export default function HomeScreen() {
           style={{ paddingTop: insets.top + 16 }}
         >
           <View className="flex-row items-center gap-1.5">
-            <Text className="font-display-semibold text-[19px] text-ink dark:text-mist">
+            <Text className="font-display-semibold text-lg text-ink dark:text-mist">
               nudge
             </Text>
             <View className="h-1.5 w-1.5 rounded-full bg-accent" />
           </View>
-          <PressableScale
+          <IconButton
+            Icon={SettingsIcon}
+            label="Settings"
             onPress={() => router.push('/settings')}
-            className="h-9 w-9 items-center justify-center rounded-full bg-[#F1ECE3] dark:bg-night-surface"
-          >
-            <SettingsIcon size={16} color="#6B655C" />
-          </PressableScale>
+          />
         </View>
 
         <View className="px-4 pb-4 pt-5">
-          <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
+          <Text className="mb-2.5 font-mono text-caption uppercase tracking-widest text-muted dark:text-muted-dark">
             {today}
           </Text>
-          <Text className="font-display-semibold text-[27px] leading-8 tracking-tight text-ink dark:text-mist">
+          <Text className="font-display-semibold text-title tracking-tight text-ink dark:text-mist">
             {todayCount > 0
               ? `${todayCount} nudge${todayCount === 1 ? '' : 's'} left today.`
               : 'Nothing pressing.'}
@@ -77,8 +87,8 @@ export default function HomeScreen() {
                 <StatTile
                   value={groups.upcoming.length}
                   label="Upcoming"
-                  tileColor="#FFE6B0"
-                  textColor="#8A5A08"
+                  tileColor={LIST_COLORS.amber[scheme].tile}
+                  textColor={LIST_COLORS.amber[scheme].text}
                 />
               </PressableScale>
             </View>
@@ -87,8 +97,8 @@ export default function HomeScreen() {
                 <StatTile
                   value={groups.completed.length}
                   label="Completed"
-                  tileColor="#CDECD8"
-                  textColor="#1F6B45"
+                  tileColor={LIST_COLORS.mint[scheme].tile}
+                  textColor={LIST_COLORS.mint[scheme].text}
                 />
               </PressableScale>
             </View>
@@ -97,8 +107,8 @@ export default function HomeScreen() {
                 <StatTile
                   value={groups.snoozed.length}
                   label="Snoozed"
-                  tileColor="#E2DBF7"
-                  textColor="#4E3A9E"
+                  tileColor={LIST_COLORS.lavender[scheme].tile}
+                  textColor={LIST_COLORS.lavender[scheme].text}
                 />
               </PressableScale>
             </View>
@@ -107,8 +117,8 @@ export default function HomeScreen() {
                 <StatTile
                   value={groups.missed.length}
                   label="Overdue"
-                  tileColor="#FFD9D2"
-                  textColor="#8E2F1A"
+                  tileColor={LIST_COLORS.coral[scheme].tile}
+                  textColor={LIST_COLORS.coral[scheme].text}
                 />
               </PressableScale>
             </View>
@@ -116,11 +126,11 @@ export default function HomeScreen() {
         )}
 
         <View className="flex-row items-baseline justify-between px-5 pb-2.5">
-          <Text className="font-display-semibold text-[17px] text-ink dark:text-mist">
+          <Text className="font-display-semibold text-lg text-ink dark:text-mist">
             Your lists
           </Text>
-          <Text className="font-mono text-[11px] tracking-widest text-muted dark:text-muted-dark">
-            {lists.length} LIST{lists.length === 1 ? '' : 'S'}
+          <Text className="font-mono text-caption uppercase tracking-widest text-muted dark:text-muted-dark">
+            {lists.length} list{lists.length === 1 ? '' : 's'}
           </Text>
         </View>
 
@@ -129,13 +139,10 @@ export default function HomeScreen() {
             data={lists}
             keyExtractor={(list) => list.id}
             renderItem={({ item, drag, isActive, getIndex }) => {
-              const count = nudges.filter(
-                (n) => n.listId === item.id && n.completedAt === null
-              ).length;
               return (
                 <ListRow
                   list={item}
-                  count={count}
+                  count={activeCountByList.get(item.id) ?? 0}
                   isLast={getIndex() === lists.length - 1}
                   onPress={() => router.push(`/list/${item.id}`)}
                   onDragStart={drag}
@@ -160,10 +167,12 @@ export default function HomeScreen() {
       <View className="absolute bottom-0 right-5" style={{ paddingBottom: insets.bottom + 20 }}>
         <PressableScale
           onPress={() => router.push('/nudge/new')}
+          accessibilityRole="button"
+          accessibilityLabel="New nudge"
           style={FAB_SHADOW}
           className="h-[58px] w-[58px] items-center justify-center rounded-full bg-ink dark:bg-mist"
         >
-          <Plus size={26} color={INK_MIST_ICON_COLOR[colorScheme ?? 'light']} />
+          <Plus size={26} color={INK_MIST_ICON_COLOR[scheme]} />
         </PressableScale>
       </View>
     </View>

@@ -14,8 +14,8 @@ type NoteEditorProps = {
 // fontFamily/fontSize/lineHeight wasn't enough.
 const noteTextStyle = {
   fontFamily: 'Outfit_400Regular',
-  fontSize: 13.5,
-  lineHeight: 19,
+  fontSize: 14,
+  lineHeight: 20,
   padding: 0,
   includeFontPadding: false,
 } as const;

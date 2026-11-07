@@ -44,5 +44,4 @@ yarn-error.*
 /android
 
 # misc
-*.apk
-*Zone.Identifier
+*.apk*

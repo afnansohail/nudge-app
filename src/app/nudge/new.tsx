@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { X } from 'lucide-react-native';
@@ -6,7 +6,8 @@ import { useDb } from '@/db/use-db';
 import { NudgeForm } from '@/components/reminders/NudgeForm';
 import { useListsStore } from '@/store/lists-store';
 import { useNudgesStore } from '@/store/nudges-store';
-import { PressableScale } from '@/components/ui/PressableScale';
+import { FormScrollView } from '@/components/ui/FormScrollView';
+import { IconButton } from '@/components/ui/IconButton';
 import { goBack } from '@/lib/navigation';
 
 export default function NewNudgeScreen() {
@@ -25,43 +26,32 @@ export default function NewNudgeScreen() {
         className="flex-row items-center justify-between px-4"
         style={{ paddingTop: insets.top + 16 }}
       >
-        <PressableScale
-          onPress={goBack}
-          className="h-9 w-9 items-center justify-center rounded-full bg-[#F1ECE3] dark:bg-night-surface"
-        >
-          <X size={16} color="#6B655C" />
-        </PressableScale>
+        <IconButton Icon={X} label="Close" onPress={goBack} />
         <Text className="font-display-semibold text-base text-ink dark:text-mist">New nudge</Text>
         <View className="w-9" />
       </View>
 
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
-        <ScrollView keyboardShouldPersistTaps="handled">
-          <NudgeForm
-            lists={lists}
-            initialValues={{
-              title: '',
-              note: null,
-              listId: defaultListId,
-              dueAt: null,
-              recurrenceType: 'none',
-              recurrenceParams: null,
-            }}
-            submitLabel="Set the nudge"
-            autoFocusTitle
-            onSubmit={async (values) => {
-              const list = lists.find((l) => l.id === values.listId);
-              if (!list) return;
-              await create(db, list, values);
-              goBack();
-            }}
-          />
-        </ScrollView>
-      </KeyboardAvoidingView>
+      <FormScrollView>
+        <NudgeForm
+          lists={lists}
+          initialValues={{
+            title: '',
+            note: null,
+            listId: defaultListId,
+            dueAt: null,
+            recurrenceType: 'none',
+            recurrenceParams: null,
+          }}
+          submitLabel="Set the nudge"
+          autoFocusTitle
+          onSubmit={async (values) => {
+            const list = lists.find((l) => l.id === values.listId);
+            if (!list) return;
+            await create(db, list, values);
+            goBack();
+          }}
+        />
+      </FormScrollView>
     </View>
   );
 }

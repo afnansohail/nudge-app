@@ -1,11 +1,20 @@
 import { ListForm } from '@/components/lists/ListForm';
 import { NoteEditor } from '@/components/reminders/NoteEditor';
 import { AppBottomSheet } from '@/components/ui/AppBottomSheet';
+import { useRevealFormEnd } from '@/components/ui/FormScrollView';
 import { Button } from '@/components/ui/Button';
+import { FieldLabel } from '@/components/ui/FieldLabel';
 import { Pill } from '@/components/ui/Pill';
 import { ThemedDatePicker } from '@/components/ui/ThemedDatePicker';
 import { useDb } from '@/db/use-db';
-import { formatNudgeDate, formatNudgeTime, parseTimeString } from '@/lib/date';
+import {
+  clampNumberText,
+  formatNudgeDate,
+  formatNudgeTime,
+  isSameCalendarDay,
+  nextTimeOfDay,
+  parseTimeString,
+} from '@/lib/date';
 import { getNotificationPermissionStatus } from '@/lib/notifications';
 import type { NudgeList, RecurrenceParams, RecurrenceType } from '@/lib/types';
 import { useListsStore } from '@/store/lists-store';
@@ -18,6 +27,7 @@ import { useEffect, useState } from 'react';
 import { Linking, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export type NudgeFormValues = {
   title: string;
@@ -77,6 +87,16 @@ export function NudgeForm({
   const db = useDb();
   const createList = useListsStore((s) => s.create);
   const { height: windowHeight } = useWindowDimensions();
+  const revealFormEnd = useRevealFormEnd();
+  const warning = LIST_COLORS.amber[scheme];
+  // Time with no date, and that time has already passed today.
+  const timeOnlyIsTomorrow =
+    selectedDate === null &&
+    selectedTime !== null &&
+    !isSameCalendarDay(
+      nextTimeOfDay(selectedTime.getHours(), selectedTime.getMinutes()),
+      Date.now()
+    );
 
   useEffect(() => {
     getNotificationPermissionStatus().then(setPermissionGranted);
@@ -94,19 +114,34 @@ export function NudgeForm({
 
   const buildRecurrenceParams = (): RecurrenceParams | null => {
     if (recurrenceType === 'weekly') return { weekdays };
-    if (recurrenceType === 'monthly') return { dayOfMonth: Number(dayOfMonth) || 1 };
-    if (recurrenceType === 'every_n_days') return { intervalDays: Number(intervalDays) || 1 };
+    if (recurrenceType === 'monthly') {
+      return { dayOfMonth: Number(clampNumberText(dayOfMonth, 1, 31)) };
+    }
+    if (recurrenceType === 'every_n_days') {
+      return { intervalDays: Number(clampNumberText(intervalDays, 1, 365)) };
+    }
     return null;
   };
 
   const handleSubmit = () => {
     let dueAt: number | null = null;
     if (hasSchedule) {
-      const base = selectedDate ?? new Date();
       const { hours, minutes } = selectedTime
         ? { hours: selectedTime.getHours(), minutes: selectedTime.getMinutes() }
         : parseTimeString(defaultNudgeTime);
-      dueAt = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, minutes).getTime();
+      if (selectedDate) {
+        dueAt = new Date(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          selectedDate.getDate(),
+          hours,
+          minutes
+        ).getTime();
+      } else {
+        // Only a time: the next time the clock shows it. Before, a time that
+        // had passed today saved as overdue at once.
+        dueAt = nextTimeOfDay(hours, minutes);
+      }
     }
     onSubmit({
       title: title.trim(),
@@ -121,10 +156,8 @@ export function NudgeForm({
   return (
     <View className="gap-6 px-4 pb-10 pt-2">
       <View>
-        <Text className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
-          What are we nudging you about?
-        </Text>
-        <View className="rounded-[20px] bg-white px-4 py-3.5 dark:bg-night-surface">
+        <FieldLabel>What are we nudging you about?</FieldLabel>
+        <View className="rounded-card bg-white px-4 py-3.5 dark:bg-night-surface">
           <TextInput
             autoFocus={autoFocusTitle}
             value={title}
@@ -138,9 +171,7 @@ export function NudgeForm({
       </View>
 
       <View>
-        <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
-          Which list?
-        </Text>
+        <FieldLabel>Which list?</FieldLabel>
         <View className="flex-row flex-wrap gap-2">
           {lists.map((list) => (
             <Pill
@@ -180,9 +211,7 @@ export function NudgeForm({
       </View>
 
       <View>
-        <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
-          When should I nudge?
-        </Text>
+        <FieldLabel>When should I nudge?</FieldLabel>
         <View className="flex-row flex-wrap gap-2">
           <Pill
             label={selectedDate ? formatNudgeDate(selectedDate.getTime()) : 'Date'}
@@ -198,15 +227,24 @@ export function NudgeForm({
           />
         </View>
 
+        {timeOnlyIsTomorrow && (
+          <Text className="mt-2 font-display text-xs text-muted dark:text-muted-dark">
+            This time has passed today, so the nudge is set for tomorrow.
+          </Text>
+        )}
+
         {hasSchedule && (
           <Pressable
             onPress={() => {
               setSelectedDate(null);
               setSelectedTime(null);
             }}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Clear date and time"
             className="mt-2.5 self-start"
           >
-            <Text className="font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
+            <Text className="font-display-medium text-xs text-muted dark:text-muted-dark">
               Clear
             </Text>
           </Pressable>
@@ -238,16 +276,17 @@ export function NudgeForm({
         {hasSchedule && permissionGranted === false && (
           <Pressable
             onPress={() => Linking.openSettings()}
-            className="mt-3 flex-row items-center gap-3 rounded-2xl bg-[#FFE6B0] px-4 py-3.5"
+            style={{ backgroundColor: warning.tile }}
+            className="mt-3 flex-row items-center gap-3 rounded-field px-4 py-3.5"
           >
-            <Bell size={18} color="#8A5A08" />
+            <Bell size={18} color={warning.text} />
             <View className="flex-1">
-              <Text className="font-display-medium text-sm text-[#8A5A08]">
+              <Text style={{ color: warning.text }} className="font-display-medium text-sm">
                 Notifications are off
               </Text>
               <Text
                 className="mt-0.5 font-display text-xs"
-                style={{ color: 'rgba(138, 90, 8, 0.8)' }}
+                style={{ color: warning.text, opacity: 0.8 }}
               >
                 This nudge won&rsquo;t reach you at the right time. Tap to enable.
               </Text>
@@ -258,9 +297,7 @@ export function NudgeForm({
 
       {hasSchedule && (
         <View>
-          <Text className="mb-2.5 font-mono text-[11px] uppercase tracking-widest text-muted dark:text-muted-dark">
-            Repeat?
-          </Text>
+          <FieldLabel>Repeat?</FieldLabel>
           <View className="flex-row flex-wrap gap-2">
             <Pill
               label="Never"
@@ -295,6 +332,10 @@ export function NudgeForm({
                 <Pressable
                   key={day}
                   onPress={() => toggleWeekday(day)}
+                  hitSlop={4}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={WEEKDAY_NAMES[day]}
+                  accessibilityState={{ checked: weekdays.includes(day) }}
                   className={
                     weekdays.includes(day)
                       ? 'h-9 w-9 items-center justify-center rounded-full bg-ink dark:bg-mist'
@@ -321,8 +362,13 @@ export function NudgeForm({
               <TextInput
                 value={dayOfMonth}
                 onChangeText={setDayOfMonth}
+                onFocus={revealFormEnd}
+                onBlur={() => setDayOfMonth((v) => clampNumberText(v, 1, 31))}
+                selectTextOnFocus
+                maxLength={2}
+                accessibilityLabel="Day of the month"
                 keyboardType="number-pad"
-                className="w-16 rounded-xl bg-white px-3 py-2 text-center font-mono text-sm text-ink dark:bg-night-surface dark:text-mist"
+                className="w-16 rounded-tile bg-white px-3 py-2 text-center font-mono text-sm text-ink dark:bg-night-surface dark:text-mist"
               />
               <Text className="font-display text-sm text-muted dark:text-muted-dark">
                 of each month
@@ -336,8 +382,13 @@ export function NudgeForm({
               <TextInput
                 value={intervalDays}
                 onChangeText={setIntervalDays}
+                onFocus={revealFormEnd}
+                onBlur={() => setIntervalDays((v) => clampNumberText(v, 1, 365))}
+                selectTextOnFocus
+                maxLength={3}
+                accessibilityLabel="Number of days"
                 keyboardType="number-pad"
-                className="w-16 rounded-xl bg-white px-3 py-2 text-center font-mono text-sm text-ink dark:bg-night-surface dark:text-mist"
+                className="w-16 rounded-tile bg-white px-3 py-2 text-center font-mono text-sm text-ink dark:bg-night-surface dark:text-mist"
               />
               <Text className="font-display text-sm text-muted dark:text-muted-dark">days</Text>
             </View>

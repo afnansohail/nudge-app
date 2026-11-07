@@ -59,3 +59,20 @@ export function parseTimeString(time: string): { hours: number; minutes: number 
 export function formatTimeString(date: Date): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
+
+/**
+ * The next time the clock shows hours:minutes: today if that time is still
+ * ahead, otherwise tomorrow. Used for a nudge that has a time but no date.
+ */
+export function nextTimeOfDay(hours: number, minutes: number, now: Date = new Date()): number {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+  if (today.getTime() > now.getTime()) return today.getTime();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, hours, minutes).getTime();
+}
+
+/** Keeps typed number text in range, so "45" or "0" does not silently become 1. */
+export function clampNumberText(text: string, min: number, max: number): string {
+  const n = Number.parseInt(text, 10);
+  if (Number.isNaN(n)) return String(min);
+  return String(Math.min(max, Math.max(min, n)));
+}

@@ -20,6 +20,8 @@ export function Pill({ label, selected, onPress, onClear, dotColor }: PillProps)
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: !!selected }}
       className={
         selected
           ? 'flex-row items-center gap-2 rounded-full bg-ink px-4 py-2.5 dark:bg-mist'
@@ -38,7 +40,7 @@ export function Pill({ label, selected, onPress, onClear, dotColor }: PillProps)
         {label}
       </Text>
       {selected && onClear ? (
-        <Pressable onPress={onClear} hitSlop={8}>
+        <Pressable onPress={onClear} hitSlop={10} accessibilityLabel={`Clear ${label}`}>
           <X size={13} color={INK_MIST_ICON_COLOR[scheme]} />
         </Pressable>
       ) : null}

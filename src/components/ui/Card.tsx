@@ -8,7 +8,7 @@ export function Card({
 }: ViewProps & { className?: string }) {
   return (
     <View
-      className={`rounded-[22px] bg-white dark:bg-night-surface ${className}`}
+      className={`rounded-card bg-white dark:bg-night-surface ${className}`}
       style={[SUBTLE_SHADOW, style]}
       {...props}
     />

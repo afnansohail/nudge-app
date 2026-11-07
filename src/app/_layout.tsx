@@ -10,6 +10,7 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { SQLiteProvider } from 'expo-sqlite';
+import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
@@ -48,7 +49,7 @@ export default function RootLayout() {
 
 function AppShell() {
   const db = useDb();
-  const { setColorScheme } = useColorScheme();
+  const { colorScheme, setColorScheme } = useColorScheme();
 
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
@@ -134,14 +135,19 @@ function AppShell() {
   if (!ready) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="list/new" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="list/[id]/edit" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="nudge/new" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="nudge/[id]/edit" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="nudges/[status]" />
-      <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
-    </Stack>
+    <>
+      {/* Explicit style, not "auto": "auto" follows the system theme, but the
+          app can override it in Settings. Dark icons on the light theme. */}
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="list/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="list/[id]/edit" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="nudge/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="nudge/[id]/edit" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="nudges/[status]" />
+        <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
+      </Stack>
+    </>
   );
 }

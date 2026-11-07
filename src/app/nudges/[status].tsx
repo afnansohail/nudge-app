@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { View, Text } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +13,7 @@ import { formatNudgeDateTime } from '@/lib/date';
 import type { Nudge, NudgeList } from '@/lib/types';
 import { LIST_COLORS } from '@/theme/tokens';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { PressableScale } from '@/components/ui/PressableScale';
+import { IconButton } from '@/components/ui/IconButton';
 import { NudgeRow } from '@/components/reminders/NudgeRow';
 import { goBack } from '@/lib/navigation';
 
@@ -78,12 +78,29 @@ export default function NudgeCategoryScreen() {
     [lists, allNudges, status]
   );
 
+  // Stable callbacks so memoized rows skip re-renders. Rows pass the nudge
+  // back; find its list here.
+  const listFor = useCallback(
+    (nudge: Nudge) => lists.find((l) => l.id === nudge.listId),
+    [lists]
+  );
+  const handleToggle = useCallback(
+    (nudge: Nudge) => {
+      const list = listFor(nudge);
+      if (!list) return;
+      return status === 'completed' ? uncomplete(db, list, nudge.id) : complete(db, list, nudge.id);
+    },
+    [listFor, status, db, complete, uncomplete]
+  );
+  const handleDelete = useCallback((nudge: Nudge) => remove(db, nudge.id), [db, remove]);
+  const handleOpen = useCallback((nudge: Nudge) => router.push(`/nudge/${nudge.id}/edit`), []);
+
   const renderItem = ({ item }: { item: Item }) => {
     if (item.type === 'header') {
       const swatch = LIST_COLORS[item.list.color][colorScheme ?? 'light'];
       return (
         <Text
-          className="px-5 pb-2 pt-5 font-mono text-[11px] uppercase tracking-widest"
+          className="px-5 pb-2 pt-5 font-mono text-caption uppercase tracking-widest"
           style={{ color: swatch.dot }}
         >
           {item.list.name}
@@ -91,23 +108,21 @@ export default function NudgeCategoryScreen() {
       );
     }
 
-    const { nudge, list, isFirst, isLast } = item;
+    const { nudge, isFirst, isLast } = item;
     const date = nudge.nextOccurrenceAt ?? nudge.dueAt;
     return (
       <View
-        className={`mx-4 bg-white dark:bg-night-surface ${isFirst ? 'rounded-t-[22px]' : ''} ${
-          isLast ? 'mb-1 rounded-b-[22px]' : ''
+        className={`mx-4 bg-white dark:bg-night-surface ${isFirst ? 'rounded-t-card' : ''} ${
+          isLast ? 'mb-1 rounded-b-card' : ''
         }`}
       >
         <NudgeRow
           nudge={nudge}
           animateLayout={false}
           timeLabel={date ? formatNudgeDateTime(date) : undefined}
-          onToggleComplete={() =>
-            status === 'completed' ? uncomplete(db, list, nudge.id) : complete(db, list, nudge.id)
-          }
-          onDelete={() => remove(db, nudge.id)}
-          onPress={() => router.push(`/nudge/${nudge.id}/edit`)}
+          onToggleComplete={handleToggle}
+          onDelete={handleDelete}
+          onPress={handleOpen}
         />
       </View>
     );
@@ -126,12 +141,7 @@ export default function NudgeCategoryScreen() {
             className="flex-row items-center justify-between px-4"
             style={{ paddingTop: insets.top + 16 }}
           >
-            <PressableScale
-              onPress={goBack}
-              className="h-9 w-9 items-center justify-center rounded-full bg-[#F1ECE3] dark:bg-night-surface"
-            >
-              <ChevronLeft size={18} color="#6B655C" />
-            </PressableScale>
+            <IconButton Icon={ChevronLeft} label="Back" size={18} onPress={goBack} />
             <Text className="font-display-semibold text-base text-ink dark:text-mist">
               {STATUS_LABELS[status]}
             </Text>
