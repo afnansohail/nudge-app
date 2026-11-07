@@ -50,3 +50,32 @@ export function groupNudgesByStatus(nudges: Nudge[], now: number = Date.now()): 
 
   return groups;
 }
+
+// Infinity - Infinity is NaN, which is not a valid sort result. Two undated
+// nudges (both Infinity) must compare as equal.
+function compareNumbers(a: number, b: number): number {
+  return a === b ? 0 : a - b;
+}
+
+/**
+ * Order for the summary screens, which show all lists together. The per-list
+ * drag order (sortOrder) has no meaning across lists, so it is not used.
+ * Returns a new array.
+ */
+export function sortAcrossLists(nudges: Nudge[], status: NudgeStatus): Nudge[] {
+  const sorted = [...nudges];
+  switch (status) {
+    case 'completed':
+      // Most recently completed first.
+      return sorted.sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0));
+    case 'upcoming':
+      // Soonest first; nudges with no date last.
+      return sorted.sort((a, b) => compareNumbers(effectiveDate(a), effectiveDate(b)));
+    case 'missed':
+      // Most recently due first: the newest misses matter most.
+      return sorted.sort((a, b) => compareNumbers(effectiveDate(b), effectiveDate(a)));
+    case 'snoozed':
+      // Soonest to wake first.
+      return sorted.sort((a, b) => (a.snoozedUntil ?? 0) - (b.snoozedUntil ?? 0));
+  }
+}

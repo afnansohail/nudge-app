@@ -32,6 +32,15 @@ type NudgeRowProps = {
   onDragStart?: () => void;
   isDragging?: boolean;
   /**
+   * Shows which list the nudge is in: a colored dot and the name at the start
+   * of the time line. For screens that mix nudges from many lists.
+   * Plain strings, not the list object, so memo() can compare them.
+   */
+  listName?: string;
+  listDotColor?: string;
+  /** The Overdue/Snoozed badge. Off on screens where every row has it. */
+  showStatusBadge?: boolean;
+  /**
    * Enter/exit/layout animations. Turn off inside a recycling list
    * (FlashList): recycled rows must not replay enter animations, and layout
    * animations on many rows are expensive.
@@ -94,6 +103,9 @@ export const NudgeRow = memo(function NudgeRow({
   onDragStart,
   isDragging,
   animateLayout = true,
+  listName,
+  listDotColor,
+  showStatusBadge = true,
 }: NudgeRowProps) {
   const status = getNudgeStatus(nudge);
   const isDone = status === 'completed';
@@ -225,21 +237,46 @@ export const NudgeRow = memo(function NudgeRow({
               {nudge.note}
             </Text>
           ) : null}
-          {timeLabel ? (
+          {listName ? (
+            <View className="mt-0.5 flex-row items-center">
+              <View
+                style={{ backgroundColor: listDotColor }}
+                className="mr-1.5 h-1.5 w-1.5 rounded-full"
+              />
+              {/* The name shrinks first, so the time stays readable. */}
+              <Text
+                numberOfLines={1}
+                style={{ flexShrink: 1, maxWidth: '45%' }}
+                className="font-mono text-caption text-muted dark:text-muted-dark"
+              >
+                {listName}
+              </Text>
+              {timeLabel ? (
+                <Text
+                  numberOfLines={1}
+                  style={{ flexShrink: 1 }}
+                  className="font-mono text-caption text-muted dark:text-muted-dark"
+                >
+                  {` · ${timeLabel}`}
+                  {recurrenceLabel ? ` · ${recurrenceLabel}` : ''}
+                </Text>
+              ) : null}
+            </View>
+          ) : timeLabel ? (
             <Text className="mt-0.5 font-mono text-caption text-muted dark:text-muted-dark">
               {timeLabel}
               {recurrenceLabel ? ` · ${recurrenceLabel}` : ''}
             </Text>
           ) : null}
         </View>
-        {isOverdue && overdueSwatch ? (
+        {showStatusBadge && isOverdue && overdueSwatch ? (
           <View style={{ backgroundColor: overdueSwatch.tile }} className="rounded-full px-[9px] py-1">
             <Text style={{ color: overdueSwatch.text }} className="font-mono text-caption">
               Overdue
             </Text>
           </View>
         ) : null}
-        {isSnoozed && snoozedSwatch ? (
+        {showStatusBadge && isSnoozed && snoozedSwatch ? (
           <View style={{ backgroundColor: snoozedSwatch.tile }} className="rounded-full px-[9px] py-1">
             <Text style={{ color: snoozedSwatch.text }} className="font-mono text-caption">
               Snoozed

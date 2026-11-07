@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getNudgeStatus, groupNudgesByStatus } from '@/lib/status';
+import { getNudgeStatus, groupNudgesByStatus, sortAcrossLists } from '@/lib/status';
 import type { Nudge } from '@/lib/types';
 
 const NOW = 1_000_000;
@@ -114,5 +114,58 @@ describe('groupNudgesByStatus', () => {
     expect(groups.snoozed.map((n) => n.id)).toEqual(['b']);
     expect(groups.missed.map((n) => n.id)).toEqual(['c']);
     expect(groups.upcoming.map((n) => n.id)).toEqual(['d']);
+  });
+});
+
+describe('sortAcrossLists', () => {
+  const ids = (nudges: Nudge[]) => nudges.map((n) => n.id);
+
+  it('sorts completed by most recently completed first, across lists', () => {
+    const nudges = [
+      makeNudge({ id: 'a', listId: 'list-1', completedAt: 10 }),
+      makeNudge({ id: 'b', listId: 'list-2', completedAt: 30 }),
+      makeNudge({ id: 'c', listId: 'list-1', completedAt: 20 }),
+    ];
+    expect(ids(sortAcrossLists(nudges, 'completed'))).toEqual(['b', 'c', 'a']);
+  });
+
+  it('sorts upcoming by soonest date and ignores per-list drag order', () => {
+    const nudges = [
+      makeNudge({ id: 'later', listId: 'list-1', dueAt: NOW + 300, sortOrder: 0 }),
+      makeNudge({ id: 'soon', listId: 'list-2', dueAt: NOW + 100, sortOrder: 5 }),
+      makeNudge({ id: 'next', listId: 'list-1', nextOccurrenceAt: NOW + 200, dueAt: NOW - 50 }),
+    ];
+    expect(ids(sortAcrossLists(nudges, 'upcoming'))).toEqual(['soon', 'next', 'later']);
+  });
+
+  it('puts upcoming nudges with no date last, in their original order', () => {
+    const nudges = [
+      makeNudge({ id: 'undated-1', dueAt: null }),
+      makeNudge({ id: 'dated', dueAt: NOW + 100 }),
+      makeNudge({ id: 'undated-2', dueAt: null }),
+    ];
+    expect(ids(sortAcrossLists(nudges, 'upcoming'))).toEqual(['dated', 'undated-1', 'undated-2']);
+  });
+
+  it('sorts overdue by most recently due first', () => {
+    const nudges = [
+      makeNudge({ id: 'old', dueAt: NOW - 300 }),
+      makeNudge({ id: 'recent', dueAt: NOW - 100 }),
+    ];
+    expect(ids(sortAcrossLists(nudges, 'missed'))).toEqual(['recent', 'old']);
+  });
+
+  it('sorts snoozed by soonest to wake first', () => {
+    const nudges = [
+      makeNudge({ id: 'late', snoozedUntil: NOW + 300 }),
+      makeNudge({ id: 'early', snoozedUntil: NOW + 100 }),
+    ];
+    expect(ids(sortAcrossLists(nudges, 'snoozed'))).toEqual(['early', 'late']);
+  });
+
+  it('does not change the input array', () => {
+    const nudges = [makeNudge({ id: 'a', completedAt: 1 }), makeNudge({ id: 'b', completedAt: 2 })];
+    sortAcrossLists(nudges, 'completed');
+    expect(ids(nudges)).toEqual(['a', 'b']);
   });
 });
