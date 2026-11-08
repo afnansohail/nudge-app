@@ -127,6 +127,7 @@ export default function NudgeCategoryScreen() {
           listDotColor={LIST_COLORS[list.color][scheme].dot}
           // Every row on this screen has the same status; the badge says nothing.
           showStatusBadge={false}
+          showRecurrence={false}
           onToggleComplete={handleToggle}
           onDelete={handleDelete}
           onPress={handleOpen}

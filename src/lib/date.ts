@@ -42,8 +42,21 @@ export function formatNudgeTime(timestamp: number): string {
   return timeFormatter.format(timestamp);
 }
 
+/**
+ * "Today" or "Tomorrow" when it applies, otherwise the normal date. For
+ * nudge dates (rows, the date pill). Not for the home screen header, which
+ * shows today's real date.
+ */
+export function formatRelativeNudgeDate(timestamp: number, now: number = Date.now()): string {
+  if (isSameCalendarDay(timestamp, now)) return 'Today';
+  const today = new Date(now);
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime();
+  if (isSameCalendarDay(timestamp, tomorrow)) return 'Tomorrow';
+  return formatNudgeDate(timestamp, now);
+}
+
 export function formatNudgeDateTime(timestamp: number, now: number = Date.now()): string {
-  return `${formatNudgeDate(timestamp, now)} · ${formatNudgeTime(timestamp)}`;
+  return `${formatRelativeNudgeDate(timestamp, now)} · ${formatNudgeTime(timestamp)}`;
 }
 
 export function parseTimeString(time: string): { hours: number; minutes: number } {

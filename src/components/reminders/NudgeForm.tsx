@@ -9,8 +9,8 @@ import { ThemedDatePicker } from '@/components/ui/ThemedDatePicker';
 import { useDb } from '@/db/use-db';
 import {
   clampNumberText,
-  formatNudgeDate,
   formatNudgeTime,
+  formatRelativeNudgeDate,
   isSameCalendarDay,
   nextTimeOfDay,
   parseTimeString,
@@ -214,7 +214,7 @@ export function NudgeForm({
         <FieldLabel>When should I nudge?</FieldLabel>
         <View className="flex-row flex-wrap gap-2">
           <Pill
-            label={selectedDate ? formatNudgeDate(selectedDate.getTime()) : 'Date'}
+            label={selectedDate ? formatRelativeNudgeDate(selectedDate.getTime()) : 'Date'}
             selected={selectedDate !== null}
             onPress={() => setPickerMode('date')}
             onClear={() => setSelectedDate(null)}

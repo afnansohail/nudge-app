@@ -41,6 +41,11 @@ type NudgeRowProps = {
   /** The Overdue/Snoozed badge. Off on screens where every row has it. */
   showStatusBadge?: boolean;
   /**
+   * The repeat label ("Monthly"). Off on the summary screens: it tells little
+   * there, and the line also holds the list name.
+   */
+  showRecurrence?: boolean;
+  /**
    * Enter/exit/layout animations. Turn off inside a recycling list
    * (FlashList): recycled rows must not replay enter animations, and layout
    * animations on many rows are expensive.
@@ -106,6 +111,7 @@ export const NudgeRow = memo(function NudgeRow({
   listName,
   listDotColor,
   showStatusBadge = true,
+  showRecurrence = true,
 }: NudgeRowProps) {
   const status = getNudgeStatus(nudge);
   const isDone = status === 'completed';
@@ -115,7 +121,9 @@ export const NudgeRow = memo(function NudgeRow({
   const showDone = isDone || isPendingDone;
   const isOverdue = status === 'missed';
   const isSnoozed = status === 'snoozed';
-  const recurrenceLabel = formatRecurrenceLabel(nudge.recurrenceType, nudge.recurrenceParams);
+  const recurrenceLabel = showRecurrence
+    ? formatRecurrenceLabel(nudge.recurrenceType, nudge.recurrenceParams)
+    : null;
   const checkStyle = useAnimatedStyle(() => ({
     opacity: withTiming(showDone ? 1 : 0, { duration: 150 }),
   }));

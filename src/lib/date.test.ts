@@ -7,6 +7,7 @@ import {
   isSameCalendarDay,
   nextTimeOfDay,
   clampNumberText,
+  formatRelativeNudgeDate,
 } from '@/lib/date';
 
 const NOW = new Date(2026, 6, 30).getTime();
@@ -60,6 +61,36 @@ describe('formatNudgeDateTime', () => {
     const result = formatNudgeDateTime(new Date(2036, 0, 15, 14, 30).getTime(), NOW);
     expect(result).toContain('2036');
     expect(result).toContain('30');
+  });
+});
+
+describe('formatRelativeNudgeDate', () => {
+  // NOW is 30 Jul 2026, 00:00.
+  it('says Today for any time on the same day', () => {
+    expect(formatRelativeNudgeDate(new Date(2026, 6, 30, 23, 59).getTime(), NOW)).toBe('Today');
+  });
+
+  it('says Tomorrow for the next day', () => {
+    expect(formatRelativeNudgeDate(new Date(2026, 6, 31, 8, 0).getTime(), NOW)).toBe('Tomorrow');
+  });
+
+  it('says Tomorrow across a month end', () => {
+    const lastDayOfMonth = new Date(2026, 6, 31, 12, 0).getTime();
+    expect(formatRelativeNudgeDate(new Date(2026, 7, 1, 9, 0).getTime(), lastDayOfMonth)).toBe('Tomorrow');
+  });
+
+  it('uses the normal date for other days, including yesterday', () => {
+    const inTwoDays = new Date(2026, 7, 1, 9, 0).getTime();
+    expect(formatRelativeNudgeDate(inTwoDays, NOW)).toBe(formatNudgeDate(inTwoDays, NOW));
+    const yesterday = new Date(2026, 6, 29, 9, 0).getTime();
+    expect(formatRelativeNudgeDate(yesterday, NOW)).toBe(formatNudgeDate(yesterday, NOW));
+  });
+});
+
+describe('formatNudgeDateTime with relative days', () => {
+  it('starts with Today or Tomorrow when it applies', () => {
+    expect(formatNudgeDateTime(new Date(2026, 6, 30, 18, 0).getTime(), NOW)).toMatch(/^Today · /);
+    expect(formatNudgeDateTime(new Date(2026, 6, 31, 9, 0).getTime(), NOW)).toMatch(/^Tomorrow · /);
   });
 });
 
